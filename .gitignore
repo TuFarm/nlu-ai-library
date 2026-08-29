@@ -1,0 +1,23 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+backend/.env
+frontend/.env
+frontend/node_modules/
+frontend/dist/
+.docx-review/
+.idea/
+.vscode/
+
+
+# Chặn hoàn toàn các file và thư mục tạm sinh ra từ Electron/Build
+frontend/release/
+**/win-unpacked.tmp/
+*.exe
+dist/
+
+
+

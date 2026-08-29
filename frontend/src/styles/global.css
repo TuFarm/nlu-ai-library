@@ -1,0 +1,20 @@
+:root {
+  font-family: Inter, system-ui, sans-serif;
+  color: #172033;
+  background: #f5f7fb;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  touch-action: manipulation;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { min-width: 320px; min-height: 100%; margin: 0; }
+body { min-height: 100vh; }
+button, input, select, textarea { min-height: 48px; font: inherit; }
+main { min-height: 100vh; padding: clamp(24px, 4vw, 64px); }
+
+@media (min-width: 1024px) and (min-height: 768px) {
+  :root { font-size: 18px; }
+  button, input, select, textarea { min-height: 56px; }
+}
+
