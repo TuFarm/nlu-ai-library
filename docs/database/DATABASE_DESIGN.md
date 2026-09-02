@@ -1,32 +1,45 @@
-# Database design
+# Thiết kế database cho AI Library Receptionist Kiosk
 
-## Architecture
+## Phạm vi
 
-The schema separates operational entities (identity, catalog, circulation) from append-only behavioral and performance facts, and connects both through UUID foreign keys. All times are timezone-aware. Mutable business records use `created_at`, `updated_at`, and, where meaningful, `deleted_at`; factual logs intentionally have no soft-delete field.
+Đây là trợ lý lễ tân thư viện bằng AI, không phải hệ thống quản lý thư viện. Trường/thư viện đã có hệ thống quản lý sách và lưu thông riêng. Vì vậy schema chỉ giữ 24 bảng cần cho nhận diện FaceID, phiên kiosk, hỏi đáp dựa trên tài liệu, gợi ý sách đơn giản, khảo sát và báo cáo nghiên cứu cơ bản.
 
-Controlled vocabularies use Python `StrEnum` mapped to bounded `VARCHAR` plus SQLAlchemy validation rather than PostgreSQL native ENUM. This makes vocabulary evolution safer while retaining typed application code. Flexible metadata uses PostgreSQL JSONB only where attributes are genuinely variable. Biometric bytes, prompts, and research demographics are never stored on `users`.
+Các bảng tác giả, nhà xuất bản, bản sao sách, kệ, mượn/trả, recommendation engine, experiment framework và data warehouse đã bị loại. Nếu cần liên kết sách, `suggested_books.external_book_id` trỏ logic đến mã sách của hệ thống hiện hữu; database này không sao chép nghiệp vụ catalog/circulation.
 
-## Domains and relationships
+## Nguyên tắc
 
-- Identity/privacy: `users`, preferences, favorite genres, participant profiles, consent history, and data-subject requests. Consent rows are versioned facts; `(user_id, granted_at)` resolves permission at event time.
-- Face/auth/device/session: secure face template/reference records, authentication attempts, devices, locations, sessions, and immutable interaction events reconstruct identification and journeys.
-- Catalog: books have normalized publishers, ordered authors, genres, copies, shelves, locations, and ebook editions.
-- Discovery/AI: search queries preserve interpretations and ranked results. AI requests preserve model/prompt versions, tokens, cost and latency. Sensitive content is optional, redacted, separately retained, and auditable.
-- RAG/recommendation/game: requests and ranked items retain model output; actions are primarily facts in `interaction_events`. Convenience timestamps/flags are projections and must not replace events.
-- Circulation: a physical loan references a copy. Nullable source search/recommendation FKs and `attribution_source` distinguish direct, browse, search, and recommendation origins. Ebook access is a separate fact.
-- Notifications/surveys/research: reminders link delivery to a loan; versioned survey instruments avoid hard-coded columns; anonymous study participants and time-bounded assignments support A/B tests.
-- Telemetry/security: application-level latency and errors support research. Infrastructure monitoring remains the responsibility of an external observability platform. Audit logs are append-only.
+- UUID cho khóa chính; timestamp có timezone; FK, index, unique và check constraint ở database.
+- Bảng mutable dùng `created_at`, `updated_at`, và `deleted_at` khi cần.
+- Log/fact append-only không có `deleted_at`: FaceID log, interaction event, AI request/response/feedback, suggestion log, survey response/answer.
+- Không lưu ảnh khuôn mặt thô. `face_profiles` chỉ chứa template mã hóa hoặc secure reference.
+- `face_authentication_logs.user_id` nullable vì khuôn mặt không nhận diện được chưa có danh tính. `UNKNOWN_FACE` phải ghi `user_id=NULL`.
+- `user_sessions.user_id` nullable để hỗ trợ phiên ẩn danh.
+- Không có cột `student_year`. Backend tính `current_year - admission_year + 1`; năm nhập học thiếu hoặc ở tương lai trả `None`.
 
-## Integrity and indexing
+## Luồng backend dự kiến
 
-Checks reject negative latency/token/cost/ranks, invalid score ranges, impossible game counts, and reversed date intervals. Composite unique constraints prevent duplicate ranked items and associations. High-value indexes include session/event time, event type/time, user/session time, search/result rank, recommendation/rank, user/loan status, book/borrow time, and service/performance time.
+1. Tạo `user_session` khi có người tiếp cận kiosk.
+2. Thử FaceID và luôn ghi `face_authentication_logs`; nếu thành công mới gắn user vào session.
+3. Tạo conversation và lưu user message.
+4. Lấy chunk từ document đang active/processed.
+5. Chọn prompt version, tạo AI request, gọi provider và lưu AI response/message.
+6. Hiển thị câu trả lời, gợi ý sách tùy chọn, rồi lưu feedback/survey nếu người dùng đồng ý.
+7. Job định kỳ tổng hợp raw logs thành `daily_report_metrics` mà không xóa hoặc thay raw data.
 
-`RESTRICT` protects research and circulation facts; `SET NULL` removes direct identity/device linkage while preserving facts. `CASCADE` is limited to ownership-only mutable associations such as book-author links and document chunks.
+## Luồng frontend dự kiến
 
-## Privacy and retention
+Kiosk: Home → Face Recognition → AI Chat → Book Suggestion (tùy chọn) → Survey (tùy chọn).
 
-`face_profiles` accepts either an encrypted template or an external vault reference, never a raw photograph. Encryption, key rotation, access control, and vault lifecycle belong to the security service—not fake database encryption. Consent, revocation, retention deadlines, erasure/anonymization requests, and sensitive actions are independently recorded. Research exports should use `anonymous_participant_code` and enforce consent-as-of-event-time.
+Admin: Knowledge Upload → Basic Dashboard. Các trang hiện chỉ là placeholder; chưa có upload, FaceID hay AI call thật.
 
-## Migration
+## Tri thức tài liệu
 
-The initial Alembic revision creates the reviewed registered metadata in dependency order and drops it in reverse order. This metadata-driven initial revision is appropriate while the repository has no deployed schema; future revisions must use explicit Alembic operations so historical migrations remain immutable.
+Upload tạo `knowledge_source`; parser tạo một hoặc nhiều `knowledge_document`; chunker tạo các `knowledge_chunk` có thứ tự, trang/sheet và metadata. RAG chỉ truy vấn document active đã xử lý thành công. Embedding/pgvector chưa được thêm vì vector stack chưa được chọn.
+
+## Hội thoại và cải tiến AI
+
+Message gần đây có thể làm context ngắn hạn. Conversation cũ chỉ được chọn lọc để phân tích FAQ, không trở thành tri thức đúng mặc định. Feedback giúp tìm câu trả lời, prompt hoặc tài liệu yếu. Prompt được version hóa để so sánh có kiểm soát.
+
+## Báo cáo nghiên cứu
+
+Raw session, FaceID, interaction, AI, suggestion và survey logs hỗ trợ thống kê nhận diện, mức sử dụng, độ trễ, lỗi, mức hữu ích và hài lòng. `daily_report_metrics` là cache tổng hợp theo ngày, không thay thế raw facts.

@@ -1,38 +1,27 @@
-# Entity relationship diagram
+# ERD — AI Kiosk Assistant
 
 ```mermaid
 erDiagram
-  USER ||--o{ USER_SESSION : starts
-  USER ||--o{ CONSENT_RECORD : grants
-  USER ||--o{ FACE_PROFILE : enrolls
-  DEVICE ||--o{ USER_SESSION : hosts
-  USER_SESSION ||--o{ INTERACTION_EVENT : records
-  USER_SESSION ||--o{ AUTHENTICATION_EVENT : attempts
-  PUBLISHER ||--o{ BOOK : publishes
-  BOOK }o--o{ AUTHOR : written_by
-  BOOK }o--o{ GENRE : classified_as
-  BOOK ||--o{ BOOK_COPY : has
-  LIBRARY_LOCATION ||--o{ SHELF : contains
-  SHELF ||--o{ BOOK_COPY : stores
-  USER_SESSION ||--o{ SEARCH_QUERY : performs
-  SEARCH_QUERY ||--o{ SEARCH_RESULT : ranks
-  BOOK ||--o{ SEARCH_RESULT : appears
-  USER_SESSION ||--o{ AI_REQUEST : invokes
-  AI_REQUEST ||--o| RAG_REQUEST : drives
-  RAG_REQUEST ||--o{ RAG_RETRIEVED_ITEM : retrieves
-  DOCUMENT ||--o{ DOCUMENT_CHUNK : splits
-  USER_SESSION ||--o{ RECOMMENDATION_RUN : triggers
-  RECOMMENDATION_RUN ||--o{ RECOMMENDATION_ITEM : ranks
-  BOOK ||--o{ RECOMMENDATION_ITEM : recommends
-  USER_SESSION ||--o{ GAME_SESSION : includes
-  GAME_SESSION ||--o{ GAME_QUESTION : asks
-  GAME_QUESTION ||--o{ GAME_ANSWER : receives
-  USER ||--o{ BORROWING_RECORD : borrows
-  BOOK_COPY ||--o{ BORROWING_RECORD : loaned_as
-  BORROWING_RECORD ||--o{ RETURN_REMINDER : prompts
-  SURVEY ||--o{ SURVEY_QUESTION : defines
-  SURVEY ||--o{ SURVEY_RESPONSE : receives
-  RESEARCH_STUDY ||--o{ EXPERIMENT_GROUP : contains
-  RESEARCH_STUDY ||--o{ RESEARCH_PARTICIPANT : enrolls
-  RESEARCH_PARTICIPANT ||--o{ PARTICIPANT_ASSIGNMENT : assigned
+  USERS ||--o| USER_PREFERENCES : has
+  USERS ||--o{ FACE_PROFILES : enrolls
+  USERS ||--o{ USER_SESSIONS : may_start
+  DEVICES ||--o{ USER_SESSIONS : hosts
+  USER_SESSIONS ||--o{ FACE_AUTHENTICATION_LOGS : records
+  USER_SESSIONS ||--o{ INTERACTION_EVENTS : records
+  KNOWLEDGE_SOURCES ||--o{ KNOWLEDGE_DOCUMENTS : contains
+  KNOWLEDGE_DOCUMENTS ||--o{ KNOWLEDGE_CHUNKS : splits_into
+  USER_SESSIONS ||--o{ CONVERSATIONS : contains
+  CONVERSATIONS ||--o{ CONVERSATION_MESSAGES : contains
+  CONVERSATIONS ||--o{ AI_REQUESTS : invokes
+  PROMPT_VERSIONS ||--o{ AI_REQUESTS : configures
+  AI_REQUESTS ||--o{ AI_RESPONSES : produces
+  AI_RESPONSES ||--o{ AI_FEEDBACK : receives
+  BOOK_CATEGORIES ||--o{ SUGGESTED_BOOKS : groups
+  SUGGESTED_BOOKS ||--o{ BOOK_SUGGESTION_LOGS : shown_as
+  SURVEYS ||--o{ SURVEY_QUESTIONS : defines
+  SURVEYS ||--o{ SURVEY_RESPONSES : receives
+  SURVEY_RESPONSES ||--o{ SURVEY_ANSWERS : contains
+  SURVEY_QUESTIONS ||--o{ SURVEY_ANSWERS : answers
 ```
+
+`daily_report_metrics` là aggregate độc lập theo ngày. Các liên kết tới user/session trong log thường nullable để giữ lịch sử ẩn danh và tránh cascade-delete facts.

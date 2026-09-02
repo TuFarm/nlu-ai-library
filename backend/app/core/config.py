@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "AI-Integrated Library Management System"
+    app_name: str = "AI Library Receptionist Assistant"
     api_v1_prefix: str = "/api/v1"
     database_url: str = "postgresql+psycopg://ai_library:ai_library_dev@localhost:5432/ai_library"
     redis_url: str = "redis://localhost:6379/0"
@@ -19,4 +19,3 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
-

@@ -1,163 +1,115 @@
 # AI Agent Brief
 
-## Current state
+## Scope after the 2026-09-02 redesign
 
-This repository is no longer only a database-model scaffold. It contains a production/research SQLAlchemy schema and an additive analytics/BI architecture, while the API, services, AI integrations, and UI remain mostly extension points.
+This project is an **AI Library Receptionist / Kiosk Assistant**, not a Library Management System. The university already owns the system of record for catalog and circulation. Do not reintroduce full books/authors/publishers/copies/shelves/loans/returns, advanced recommendations, A/B infrastructure, warehouse dimensions/facts, or ML lineage unless the user explicitly expands scope.
 
-The registered SQLAlchemy metadata currently contains:
+The SQLAlchemy registry must contain exactly these 24 tables:
 
-- 92 tables
-- 140 foreign keys
-- 104 indexes
-- Operational, research, telemetry, dashboard, staff/RBAC, academic, geographic, and ML-lineage domains
+1. users
+2. user_preferences
+3. face_profiles
+4. face_authentication_logs
+5. devices
+6. user_sessions
+7. interaction_events
+8. knowledge_sources
+9. knowledge_documents
+10. knowledge_chunks
+11. conversations
+12. conversation_messages
+13. ai_requests
+14. ai_responses
+15. ai_feedback
+16. prompt_versions
+17. book_categories
+18. suggested_books
+19. book_suggestion_logs
+20. surveys
+21. survey_questions
+22. survey_responses
+23. survey_answers
+24. daily_report_metrics
 
-The last verified model suite reported `7 passed`. PostgreSQL upgrade and downgrade SQL generation also passed. A live PostgreSQL migration was not executed in the implementation environment because Docker was unavailable there.
+Last verification: 12 backend tests passed; PostgreSQL upgrade/downgrade SQL compiled; FastAPI imported; frontend production build passed. Live PostgreSQL migration was not run in the implementation environment.
 
-## Repository map
+## Architecture map
 
-- `backend/app/main.py`: FastAPI application factory, `/health`, and `/api/v1` router registration.
-- `backend/app/core/config.py`: environment-backed application, PostgreSQL, Redis, and Gemini settings.
-- `backend/app/core/database.py`: SQLAlchemy engine/session, declarative base, timestamp mixin, and soft-delete mixin.
-- `backend/app/models/enums.py`: typed controlled vocabularies.
-- `backend/app/models/schema.py`: operational and scientific-research models.
-- `backend/app/models/analytics.py`: analytics dimensions/facts, AI/prompt registries, staff/RBAC, academic/geographic data, KPI/alerts, dashboards, and ML metadata.
-- `backend/app/models/__init__.py`: mandatory metadata registry; Alembic depends on all models being imported here.
-- `backend/app/api/v1/routes/`: currently empty routers for users, books, borrowing, interactions, and recommendations.
-- `backend/app/services/`: placeholder Gemini and library-service boundaries.
-- `backend/alembic/versions/20260829_0001_complete_schema.py`: initial operational/research schema.
-- `backend/alembic/versions/20260829_0002_analytics_architecture.py`: additive analytics upgrade and AI registry references.
-- `backend/tests/test_database_models.py`: structural mapper, DDL, relationship, constraint, grain, and cascade tests.
-- `frontend/src/`: minimal React/TypeScript routes and kiosk-oriented components.
-- `frontend/electron/`: Electron kiosk wrapper.
-- `docs/database/`: database design, ERD, data dictionary, and definitions/calculations for 40 research metrics.
-- `docs/dashboard/`: dashboard architecture, governed KPIs, future warehouse/star schema, and materialized-view recommendations.
-- `docker-compose.yml`: PostgreSQL 16 and Redis 7 local infrastructure.
+- `backend/app/models/schema.py`: all 24 typed SQLAlchemy models.
+- `backend/app/models/__init__.py`: metadata registry; keep it complete and free of stale models.
+- `backend/app/core/database.py`: engine/session, timestamp and soft-delete mixins.
+- `backend/alembic/versions/20260902_0001_ai_kiosk_schema.py`: replacement initial migration; validates the exact table set.
+- `backend/app/api/v1/router.py`: placeholder domain routers for users, FaceID, sessions, interactions, knowledge, conversations, AI, prompts, book suggestions, surveys, and reports.
+- `backend/app/schemas/common.py`: minimal typed placeholder response.
+- `backend/app/services/`: clear boundaries for face, knowledge parsing, RAG, AI, survey, reports, and user helpers.
+- `backend/app/services/user_service.py`: `calculate_student_year`; do not persist derived student year.
+- `frontend/src/components/`: kiosk and admin placeholder pages matching the simplified journey.
+- `docs/database/`: authoritative scope/design/dictionary/ERD, AI-vs-reporting explanation, and redesign changelog.
 
-## Database architecture
+## Intended product flow
 
-### Operational and research domains
+Kiosk: home → create anonymous session → FaceID attempt → attach user on success or remain anonymous → conversation/message → retrieve active knowledge chunks → create AI request/response → optional simple book suggestion → optional feedback/survey → end session.
 
-- Identity, preferences, consent history, data-subject requests, and anonymized research profiles
-- Face profiles represented by encrypted templates or external secure references—never raw face images on `users`
-- Devices, sessions, authentication attempts, and append-only interaction events
-- Normalized books, authors, genres, publishers, copies, shelves, locations, and ebooks
-- Search queries/results, AI requests/content, RAG documents/chunks/retrievals, and recommendations
-- Games, borrowing/return attribution, notifications/reminders, and versioned surveys
-- Research studies, anonymous participants, experimental groups, and time-bounded assignments
-- Application performance/error telemetry and append-only security audit logs
+Admin: upload knowledge source → parse into document/chunks → view processing state → view basic daily report.
 
-### Analytics and dashboard domains
+No real recognition, upload parsing, vector search, AI provider call, or CRUD is implemented yet. Placeholder routes/components must not be described as completed features.
 
-- `dim_date` and `dim_time` for calendar, fiscal, academic, holiday, and hourly analysis
-- Eight daily aggregate facts: library usage, borrowing, search, recommendations, AI, games, authentication, and surveys
-- AI model and prompt registries; legacy AI request text columns remain for backward compatibility
-- Staff, departments, roles, permissions, assignments, and staff activities
-- Faculties, majors, courses, academic profiles, and enrollments
-- Reading rooms and time/location traffic snapshots
-- Book popularity snapshots
-- Governed dashboard metrics, alert rules/history, dashboards/widgets/layouts/filters/preferences
-- ML datasets/versions, experiments, feature sets, training runs, and evaluation metrics
+## Data boundaries
 
-Daily fact tables supplement operational facts and must never become the source of transactional truth. Behavioral analysis should use immutable events; dashboard aggregates should be refreshed idempotently with `source_watermark` and `refreshed_at`.
+AI response/improvement inputs: knowledge sources/documents/chunks, selected conversation messages, feedback, prompt versions, user preferences, identity-only face profiles, and simple suggested books.
 
-## Important modeling rules
+Research/report inputs: sessions, interaction events, FaceID logs, AI requests/responses, suggestion logs, surveys/questions/responses/answers, and daily aggregates.
 
-1. Preserve UUID primary keys, timezone-aware timestamps, explicit FKs, and current table names.
-2. Treat `interaction_events`, `audit_logs`, and factual telemetry as append-only.
-3. Do not cascade-delete research, audit, authentication, AI, recommendation, or borrowing history.
-4. Use soft deletion only for mutable business/configuration entities.
-5. Keep demographics separate from operational users and use anonymous participant codes for research exports.
-6. Do not store raw biometric images, plaintext passwords, or unredacted sensitive AI content by default.
-7. `RecommendationItem` and `SearchResult` convenience state does not replace timestamped interaction events.
-8. Borrowing attribution should use `source_search_id` or `source_recommendation_item_id`, not redundant booleans.
-9. Dashboard fact grain must be explicit and protected by unique constraints.
-10. Large ML datasets, embeddings, and model artifacts belong in governed external storage; PostgreSQL stores references and lineage.
+The AI does not retrain itself from database records. Stored data supports RAG, limited context/memory, prompt versioning, feedback and evaluation. Any future training requires explicit consent, anonymization and governance.
 
-## Migration guidance
+## Safety and integrity rules
 
-Run Alembic from `backend`:
+- Never store raw face photos or biometric data directly on users.
+- A face profile must use an encrypted template or secure external reference; encryption/key management belongs to the security service.
+- `face_authentication_logs.user_id` and `user_sessions.user_id` remain nullable for unknown/anonymous visitors.
+- Append-only logs do not receive `deleted_at`; mutable configuration/business rows may use soft deletion.
+- Avoid cascade deletion of factual history.
+- Use `suggested_books.external_book_id` to integrate with the existing library system; do not mirror its catalog/circulation domain.
+- `student_year = current_year - admission_year + 1`; missing or future admission years return `None`.
+- Conversation history is not automatically authoritative knowledge.
+- `daily_report_metrics` is derived and never replaces raw records.
+- Do not add embeddings/pgvector before the vector stack is selected.
 
-```bash
-alembic upgrade head
-alembic current
-```
+## Local verification
 
-The initial revision imports registered metadata rather than containing a fully frozen list of explicit operations. Revision `0002` therefore performs online schema inspection and is idempotent for both:
-
-- an existing database created by the original `0001`; and
-- a fresh database where live metadata makes `0001` see the current model registry.
-
-Do not copy this pattern into future migrations. New revisions should use reviewed explicit Alembic operations and must not modify already-deployed historical revisions. Always test fresh upgrade, upgrade from the previous revision, and downgrade against PostgreSQL.
-
-## Local setup and verification
-
-Detailed Vietnamese instructions are in `README.md`.
-
-Infrastructure, from the repository root:
+From `backend`:
 
 ```bash
-docker compose up -d
-docker compose ps
-```
-
-Backend:
-
-```bash
-cd backend
-python -m venv .venv
-# Activate .venv for the current shell
-python -m pip install -r requirements.txt
-alembic upgrade head
+alembic upgrade head --sql
 python -m pytest -q
 uvicorn app.main:app --reload
 ```
 
-Frontend:
+From `frontend`:
 
 ```bash
-cd frontend
 npm install
+npm run build
 npm run dev
 ```
 
-Electron kiosk development:
+Before deployment, run the migration against a disposable PostgreSQL 16 database and test both upgrade and downgrade.
 
-```bash
-cd frontend
-npm run electron:dev
-```
+## Remaining TODOs
 
-## Deliberate non-implementation
+- Live PostgreSQL migration/integration tests
+- Request/response schemas and CRUD/service transactions
+- Authentication/authorization and admin access
+- Consent, retention, encryption and key management
+- Face capture, liveness and recognition
+- Upload validation/storage and PDF/Word/Excel/image parsing
+- Chunking, retrieval and optional vector search
+- AI provider execution, grounded citations and redaction
+- Suggestion and survey APIs
+- Idempotent daily-report aggregation job
+- Real kiosk/admin UI and API clients
+- CI/CD, backup and production observability
 
-The following still require implementation:
+## Required change discipline
 
-- Pydantic request/response schemas and complete CRUD/API routes
-- Authentication, authorization enforcement, and staff permission middleware
-- Borrowing transaction services and concurrency/availability handling
-- Face capture, recognition, liveness detection, hardware integration, encryption, and key management
-- Gemini calls, prompt execution, RAG pipelines, and recommendation services
-- Redis cache/session integration
-- ETL jobs for dimensions, daily facts, popularity snapshots, and materialized-view refresh
-- Dashboard UI and BI-tool deployment
-- ML training pipelines and artifact storage integration
-- PostgreSQL roles, restricted views, row/column security, partitioning, backups, CI/CD, and production deployment
-
-## Recommended implementation sequence
-
-1. Validate both migrations against a disposable PostgreSQL 16 instance and add live integration tests.
-2. Add Pydantic schemas and service-layer transaction boundaries.
-3. Implement authentication/authorization and privacy enforcement before exposing sensitive models.
-4. Implement thin CRUD/API routes over services.
-5. Add event emission and AI/search/recommendation attribution consistently.
-6. Implement idempotent analytics refresh jobs and approved materialized views.
-7. Connect frontend clients and build dashboard views.
-8. Add CI, backups, observability, security controls, and production configuration.
-
-## Before submitting changes
-
-- Import every new model through `app.models` so Alembic metadata sees it.
-- Review migration upgrade and downgrade manually.
-- Run `python -m pytest -q` from `backend`.
-- Run `npm run build` from `frontend` for frontend changes.
-- Update the database/dashboard documentation when changing tables, metrics, event semantics, or fact grain.
-- Preserve unrelated worktree changes and never commit secrets, `.env`, database dumps, virtual environments, or build artifacts.
+Keep the schema practical for a student research project. Add new tables only when a concrete kiosk requirement cannot be represented by the 24-table design. Import every model, review migrations manually, run backend tests and frontend build, and update the dictionary/ERD/changelog whenever schema semantics change.

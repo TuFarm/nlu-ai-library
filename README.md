@@ -12,15 +12,14 @@ nlu-library-ai/
 │   ├── app/
 │   │   ├── api/v1/routes/       # Router FastAPI, hiện chủ yếu là khung
 │   │   ├── core/                # Cấu hình, engine và SQLAlchemy Base
-│   │   ├── models/              # 92 bảng operational, research và analytics
+│   │   ├── models/              # Đúng 24 bảng cho AI kiosk assistant
 │   │   └── services/            # Biên tích hợp nghiệp vụ/Gemini
 │   ├── alembic/                 # Hai migration database
 │   └── tests/                   # Kiểm tra metadata, FK, constraint và model
 ├── frontend/
 │   ├── src/                     # React + TypeScript + React Router
 │   └── electron/                # Vỏ ứng dụng kiosk Electron
-├── docs/database/               # ERD, data dictionary, research metrics
-├── docs/dashboard/              # KPI, star schema, warehouse, materialized views
+├── docs/database/               # Design, ERD, data dictionary và redesign log
 └── docker-compose.yml           # PostgreSQL 16 và Redis 7
 ```
 
@@ -32,7 +31,7 @@ nlu-library-ai/
 - Frontend: React, TypeScript, Vite
 - Kiosk desktop: Electron
 - AI integration boundary: Gemini API
-- Analytics: date/time dimensions, dashboard facts, KPI registry, alerting và ML lineage
+- AI/RAG: nguồn tri thức → tài liệu → chunk, hội thoại, prompt và feedback
 
 ## Yêu cầu trước khi cài đặt
 
@@ -82,7 +81,7 @@ cp backend/.env.example backend/.env
 Nội dung mặc định:
 
 ```dotenv
-APP_NAME=NLU AI-Integrated Library Management System
+APP_NAME=NLU AI Library Receptionist Assistant
 API_V1_PREFIX=/api/v1
 DATABASE_URL=postgresql+psycopg://ai_library:ai_library_dev@localhost:5432/ai_library
 REDIS_URL=redis://localhost:6379/0
@@ -152,10 +151,7 @@ alembic upgrade head
 alembic current
 ```
 
-Migration hiện có:
-
-1. `20260829_0001`: schema nghiệp vụ và nghiên cứu.
-2. `20260829_0002`: analytics, dashboard, AI registry, staff/RBAC và ML metadata.
+Migration hiện có: `20260902_0001_ai_kiosk_schema.py`, tạo đúng 24 bảng của AI kiosk assistant.
 
 Kiểm tra SQL mà không thực thi:
 
@@ -264,34 +260,28 @@ docker compose down
 
 Lệnh trên giữ dữ liệu trong Docker volumes. Chỉ dùng `docker compose down -v` khi chắc chắn muốn xóa toàn bộ dữ liệu PostgreSQL và Redis cục bộ.
 
-## Database và analytics
+## Database AI kiosk
 
-Schema gồm 92 bảng, chia thành các miền:
+Schema có đúng 24 bảng, tập trung vào:
 
-- Identity, consent, FaceID và privacy
-- Device, session và immutable interaction events
-- Catalog chuẩn hóa, bản sách vật lý và ebook
-- Search, AI request, RAG và recommendation attribution
-- Mini-game, borrowing/return, notification và survey
-- Research study, participant và A/B assignment
-- Application telemetry và audit log
-- Calendar/time dimensions, daily dashboard facts và book popularity
-- AI model/prompt registry, staff/RBAC, academic/geographic analytics
-- Dashboard configuration, KPI/alert governance và ML lineage
+- User/student cơ bản và preference
+- Face profile, FaceID attempt, device và anonymous/identified session
+- Interaction events
+- Knowledge source → document → chunk cho RAG
+- Conversation → message → AI request → response → feedback
+- Prompt versioning
+- Category và suggested book đơn giản, có optional external library ID
+- Survey và daily report metrics
 
-Các fact table dashboard là dữ liệu tổng hợp, không thay thế bảng nghiệp vụ. Chiến lược refresh, star schema và materialized views nằm trong `docs/dashboard/`.
+Đây không phải hệ thống quản lý thư viện. Catalog đầy đủ, tác giả, nhà xuất bản, bản sao, kệ, mượn/trả, recommendation engine, experiment framework và data warehouse không nằm trong schema này.
 
 Tài liệu quan trọng:
 
 - [Thiết kế database](docs/database/DATABASE_DESIGN.md)
 - [ERD](docs/database/ERD.md)
 - [Data dictionary](docs/database/DATA_DICTIONARY.md)
-- [40 research metrics](docs/database/RESEARCH_METRICS.md)
-- [Kiến trúc dashboard](docs/dashboard/DASHBOARD_ARCHITECTURE.md)
-- [KPI definitions](docs/dashboard/KPI_DEFINITIONS.md)
-- [Data warehouse](docs/dashboard/DATA_WAREHOUSE.md)
-- [Star schema](docs/dashboard/STAR_SCHEMA.md)
-- [Materialized views](docs/dashboard/MATERIALIZED_VIEWS.md)
+- [AI learning và reporting data](docs/database/AI_LEARNING_VS_REPORTING_DATA.md)
+- [Database redesign changelog](docs/database/CHANGELOG_DATABASE_REDESIGN.md)
 
 ## Xử lý lỗi thường gặp
 
@@ -339,8 +329,8 @@ Luôn đọc và review migration được sinh ra trước khi chạy trên dat
 - Nhận diện hoặc phần cứng FaceID
 - Gemini request thực tế và quản lý prompt runtime
 - Redis cache/session client
-- ETL jobs refresh fact table và materialized views
-- Dashboard UI/BI deployment
+- Job tổng hợp `daily_report_metrics`
+- Basic dashboard API và UI hoàn chỉnh
 - CI/CD và cấu hình production
 
 Biometric template chỉ được thiết kế dưới dạng dữ liệu mã hóa hoặc secure external reference. Việc mã hóa, quản lý khóa, phân quyền, retention và audit phải được triển khai ở tầng security/service trước khi sử dụng FaceID thật.
