@@ -39,3 +39,17 @@ Verification: `npm run build` passed (TypeScript and Vite); `git diff --check` p
 - No migration was required; all writes fit the existing 24-table schema.
 - Real local recognition, STT, Gemini and RAG remain isolated placeholders.
 - Verification completed with a clean Python 3.12 environment: requirements installed with `psycopg-binary 3.3.5`, 21 tests passed, FastAPI imported 40 routes, Alembic offline SQL compiled, frontend production build passed, and live DB health correctly returned structured 503 because PostgreSQL was not running.
+
+## 2026-09-03 — Phase 4 kiosk frontend runtime
+
+- Replaced the mock-button kiosk controller with a typed `useReducer` state machine covering idle, camera permission/ready, face scan/result, welcome, chat, books, survey, thank-you and error.
+- Added `useCamera`, a reusable live preview, safe stream cleanup and in-memory JPEG frame capture posted as multipart form data to the Phase 3 FaceID endpoint.
+- Added Vietnamese Web Speech recognition with interim/final transcripts, permission/unsupported fallbacks and keyboard input that remains available at all times.
+- Centralized typed session, FaceID, voice, conversation, AI, book, survey and admin API functions; offline fallback now requires `VITE_ENABLE_MOCK_FALLBACK=true`.
+- Loaded categories, suggested books and active surveys from database endpoints with friendly empty/loading/error states.
+- Added five-second thank-you reset and configurable inactivity reset, paused while listening or processing.
+- Kept developer FaceID/bypass/reset controls behind `import.meta.env.DEV` and kept the Admin Web layout/routes unchanged.
+- Added conversation message reading and an AI request flag so browser voice persistence does not duplicate the user message.
+- Documented runtime architecture, device setup, state transitions, contracts, environment variables, remaining mocks and Electron readiness.
+
+Verification: `npm run build` passed (strict TypeScript project build and Vite production bundle); 21 backend tests passed; OpenAPI exposed the conversation message GET route and voice de-duplication field; live Vite HTTP smoke checks returned 200 with the React root for `/`, `/admin`, `/kiosk` and `/kiosk/fullscreen`. Hardware permission prompts remain a manual laptop check.

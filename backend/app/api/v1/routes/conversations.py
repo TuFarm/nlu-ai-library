@@ -1,12 +1,13 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.errors import AppError
 from app.core.responses import success_response
-from app.models.schema import Conversation, User, UserSession
+from app.models.schema import Conversation, ConversationMessage, User, UserSession
 from app.schemas.conversation import ConversationMessageCreate, ConversationStart
 from app.services.conversation_service import save_message, start_conversation
 
@@ -30,3 +31,16 @@ def create_message(conversation_id: UUID, payload: ConversationMessageCreate, db
     message = save_message(db, conversation, payload.sender_type, payload.message_text, payload.input_method)
     return success_response({"id": str(message.id), "conversation_id": str(conversation_id), "sender_type": message.sender_type,
         "message_text": message.message_text, "input_method": message.input_method, "message_time": message.message_time.isoformat()})
+
+
+@router.get("/{conversation_id}/messages")
+def get_messages(conversation_id: UUID, db: Session = Depends(get_db)) -> dict:
+    if db.get(Conversation, conversation_id) is None:
+        raise AppError(404, "CONVERSATION_NOT_FOUND", "Không tìm thấy hội thoại.")
+    messages = db.scalars(select(ConversationMessage).where(
+        ConversationMessage.conversation_id == conversation_id
+    ).order_by(ConversationMessage.message_time)).all()
+    return success_response([{"id": str(message.id),
+        "role": "assistant" if message.sender_type == "ASSISTANT" else "user",
+        "text": message.message_text or "", "inputMethod": message.input_method}
+        for message in messages])

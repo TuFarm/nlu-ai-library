@@ -1,19 +1,27 @@
-# Frontend–backend camera and microphone contract
+# Frontend–backend kiosk contract
 
-The backend cannot open a browser/Electron camera or microphone. The renderer owns permission prompts and media capture through `navigator.mediaDevices.getUserMedia`.
+The backend cannot open browser/Electron hardware. The frontend owns camera, microphone and browser speech recognition, then sends media or transcript data to FastAPI. All API responses use `{ success, message, data, error? }`.
 
-## Camera
+`VITE_API_BASE_URL` is the server origin (`http://localhost:8000` by default). The client appends `/api/v1`; it also accepts a configured URL that already ends in `/api/v1`.
 
-1. Request video permission and render a local preview.
-2. Draw one frame to a canvas and encode JPEG/PNG/WebP.
-3. Send `multipart/form-data` with `image_file`, optional `session_id`, and optional `device_code` to `POST /api/v1/face/verify`.
-4. On `SUCCESS`/`WELCOME`, store returned user in kiosk flow. On `UNKNOWN_FACE`/`FACE_UNKNOWN`, show retry/guest actions. Provider errors go to the error screen.
-5. Enrollment sends `user_id`, optional session/device IDs and `image_file` to `/api/v1/face/enroll` only after explicit consent.
+| Purpose | Request | Important response |
+|---|---|---|
+| Start session | `POST /api/v1/kiosk/sessions/start` with device code | session ID, device ID, next state |
+| Log event | `POST /api/v1/kiosk/sessions/{id}/events` | event ID |
+| End session | `POST /api/v1/kiosk/sessions/{id}/end` | `next_state: IDLE` |
+| Verify face | `POST /api/v1/face/verify` multipart | result, user, confidence, next state |
+| Start conversation | `POST /api/v1/conversations/start` | conversation ID |
+| Read messages | `GET /api/v1/conversations/{id}/messages` | normalized message list |
+| Browser voice | `POST /api/v1/voice/browser-transcript` | stored message ID |
+| AI answer | `POST /api/v1/ai/answer` | answer, provider, warning, `AI_CHAT` |
+| Book categories | `GET /api/v1/book-categories` | category records |
+| Suggested books | `GET /api/v1/suggested-books?category_id=...` | simple book records |
+| Active survey | `GET /api/v1/surveys/active` | survey or `null` |
+| Submit survey | `POST /api/v1/surveys/{id}/responses` | response ID/count |
+| Admin data | `/api/v1/admin/dashboard/mock` and `/api/v1/admin/status` | admin data |
 
-## Microphone
+For text, `/ai/answer` stores the user message. For voice, `/voice/browser-transcript` stores it first and the AI request sends `save_user_message:false`, avoiding duplicate conversation history.
 
-Record WebM/WAV/MP3/M4A/OGG and submit `audio_file` plus optional session/conversation IDs to `/api/v1/voice/transcribe`. Alternatively, use browser Web Speech API and send JSON `{ session_id, conversation_id, transcript, confidence_score }` to `/api/v1/voice/browser-transcript`.
+Images are JPEG blobs created from the current preview frame. The development backend validates MIME type and its configured 5 MB limit, then deletes raw verification media unless retention is explicitly enabled. Browser speech is the primary Phase 4 voice path; audio upload/STT remains optional.
 
-After transcript persistence, send `{ conversation_id, session_id, message_text }` to `/api/v1/ai/answer`, display `answer`, then remain in `AI_CHAT`. Submit the active survey at session end.
-
-Image limit is 5 MB and audio limit is 15 MB by default. The development backend validates MIME types. Raw media is deleted after processing unless `MEDIA_RETAIN_DEVELOPMENT_FILES=true`; production must use consent, encryption and retention controls.
+Offline fallback is never implicit. It is allowed only when `VITE_ENABLE_MOCK_FALLBACK=true`, and the kiosk displays a notice when it uses an offline AI response or sample book/survey data.

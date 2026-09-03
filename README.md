@@ -2,7 +2,7 @@
 
 Monorepo cho trợ lý lễ tân/kiosk thư viện đại học, gồm backend FastAPI, PostgreSQL, Redis và giao diện React/TypeScript. Đây không phải hệ thống quản lý thư viện hay mượn/trả.
 
-> Trạng thái hiện tại: nền tảng database và analytics đã được thiết kế đầy đủ; API nghiệp vụ, FaceID, Gemini, Redis client và phần lớn giao diện vẫn là các điểm mở rộng, chưa phải sản phẩm hoàn chỉnh.
+> Trạng thái hiện tại: Phase 4 kiosk frontend runtime đã dùng camera laptop, chụp khung hình, nhận transcript giọng nói trình duyệt, gọi các API Phase 3 và tự điều hướng theo state machine. Face matching, Gemini, RAG và server-side STT thật vẫn là các provider mock.
 
 Frontend có hai chế độ độc lập: Admin Web tại `/admin` dành cho nhân viên và Kiosk fullscreen tại `/kiosk/fullscreen` dành cho sinh viên. Kiosk vận hành theo luồng trạng thái tự động, không dùng sidebar như một website thông thường.
 
@@ -14,7 +14,7 @@ Phase 3 backend đã ghi session, event, hội thoại, AI history, FaceID log v
 nlu-library-ai/
 ├── backend/
 │   ├── app/
-│   │   ├── api/v1/routes/       # Router FastAPI, hiện chủ yếu là khung
+│   │   ├── api/v1/routes/       # API runtime kiosk và các module quản trị
 │   │   ├── core/                # Cấu hình, engine và SQLAlchemy Base
 │   │   ├── models/              # Đúng 24 bảng cho AI kiosk assistant
 │   │   └── services/            # Biên tích hợp nghiệp vụ/Gemini
@@ -214,6 +214,8 @@ Mở [http://localhost:5173](http://localhost:5173). Vite lắng nghe trên `0.0
 - Admin Web: `http://localhost:5173/admin`
 - Kiosk fullscreen: `http://localhost:5173/kiosk/fullscreen`
 
+Tạo `frontend/.env` từ `frontend/.env.example` nếu cần đổi backend, mã thiết bị, mock fallback hoặc timeout. Tại kiosk fullscreen, nhấn **Bắt đầu phiên thử nghiệm**, cho phép camera, nhìn vào khung quét, rồi dùng **Nhấn để nói** trong màn hình chat để cấp quyền microphone. Nếu Web Speech không được hỗ trợ, nhập câu hỏi bằng bàn phím.
+
 ### Bước 9: Chạy chế độ kiosk Electron
 
 Sau khi đã chạy `npm install`:
@@ -334,14 +336,29 @@ python -m pytest -q
 
 Luôn đọc và review migration được sinh ra trước khi chạy trên database dùng chung.
 
+## Trạng thái triển khai sau Phase 4
+
+Đã sẵn sàng để thử trên laptop:
+
+- session kiosk, timeout và tự trở về idle;
+- camera permission, preview, canvas JPEG capture và multipart face verification;
+- recognized/unknown/guest welcome;
+- chat text, câu hỏi nhanh và Web Speech `vi-VN`;
+- dữ liệu thể loại/sách/khảo sát từ backend;
+- fallback có kiểm soát bằng `VITE_ENABLE_MOCK_FALLBACK`;
+- fullscreen web và Electron development shell.
+
+Xem [Kiosk frontend runtime](docs/kiosk/KIOSK_FRONTEND_RUNTIME.md), [Camera/microphone setup](docs/kiosk/CAMERA_MIC_SETUP.md), [State machine](docs/kiosk/KIOSK_STATE_MACHINE.md) và [Frontend/backend contract](docs/kiosk/FRONTEND_BACKEND_CONTRACT.md).
+
 ## Những phần chưa triển khai
 
 - CRUD/API nghiệp vụ hoàn chỉnh
 - Authentication và phân quyền runtime
-- Nhận diện hoặc phần cứng FaceID
+- Thuật toán/nhà cung cấp FaceID production và quy trình consent/enrollment
 - Gemini request thực tế và quản lý prompt runtime
 - Redis cache/session client
 - Job tổng hợp `daily_report_metrics`
+- Browser-independent/onsite speech-to-text production
 - Basic dashboard API và UI hoàn chỉnh
 - CI/CD và cấu hình production
 

@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from time import perf_counter
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -20,7 +21,12 @@ router = APIRouter()
 def runtime_answer(payload: AIRuntimeRequest, db: Session = Depends(get_db)) -> dict:
     conversation = db.get(Conversation, payload.conversation_id)
     if conversation is None: raise AppError(404, "CONVERSATION_NOT_FOUND", "Không tìm thấy hội thoại.")
-    user_message = save_message(db, conversation, "USER", payload.message_text, "TEXT")
+    user_message = save_message(db, conversation, "USER", payload.message_text, "TEXT") if payload.save_user_message else db.scalar(
+        select(ConversationMessage).where(
+            ConversationMessage.conversation_id == conversation.id,
+            ConversationMessage.sender_type == "USER",
+        ).order_by(ConversationMessage.message_time.desc())
+    )
     started = perf_counter(); answer = AIService().answer(payload.message_text); latency = int((perf_counter() - started) * 1000)
     request = AIRequest(conversation_id=conversation.id, user_message_id=user_message.id, request_type="library_qa",
         model_name=answer.model_name, input_token_count=None, output_token_count=None, latency_ms=latency, status="completed")

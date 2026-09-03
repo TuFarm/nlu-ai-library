@@ -1,1 +1,22 @@
-export default function FaceScanningScreen({ onSuccess, onUnknown }: { onSuccess: () => void; onUnknown: () => void }) { return <div className="kiosk-center scanning-screen"><div className="scan-camera"><div className="scan-line"/><div className="scan-face">◎</div><b>CAMERA PLACEHOLDER</b><span className="corner tl"/><span className="corner tr"/><span className="corner bl"/><span className="corner br"/></div><span className="kiosk-kicker pulse-text">● ĐANG QUÉT</span><h1>Đang nhận diện khuôn mặt...</h1><p>Vui lòng nhìn thẳng vào màn hình và giữ yên trong giây lát.</p><div className="kiosk-actions"><button onClick={onSuccess}>Mô phỏng nhận diện thành công</button><button className="kiosk-ghost" onClick={onUnknown}>Mô phỏng không nhận diện được</button></div><small>Bản thử nghiệm hiện chưa kết nối camera thật. Vui lòng dùng nút mô phỏng.</small></div> }
+import { useEffect, useRef, type Ref } from "react";
+import { CameraPreview } from "../../components/kiosk/CameraPreview";
+import type { CameraStatus } from "../../types/kiosk";
+
+export default function FaceScanningScreen({ videoRef, cameraStatus, cameraError, busy, onScan }: {
+  videoRef: Ref<HTMLVideoElement>; cameraStatus: CameraStatus; cameraError?: string | null; busy: boolean; onScan: () => void;
+}) {
+  const started = useRef(false);
+  useEffect(() => {
+    if (cameraStatus !== "READY" || started.current) return;
+    started.current = true;
+    const id = window.setTimeout(onScan, 1200);
+    return () => window.clearTimeout(id);
+  }, [cameraStatus, onScan]);
+  return <div className="kiosk-center scanning-screen">
+    <CameraPreview videoRef={videoRef} status={cameraStatus} error={cameraError} showFrameOverlay/>
+    <span className="kiosk-kicker pulse-text">● {busy ? "ĐANG XÁC MINH" : "ĐANG QUÉT"}</span>
+    <h1>{busy ? "Đang gửi ảnh để nhận diện…" : "Đang nhận diện khuôn mặt…"}</h1>
+    <p>Vui lòng nhìn thẳng vào màn hình và giữ yên trong giây lát.</p>
+    {!busy && <button onClick={onScan}>Quét lại ngay</button>}
+  </div>;
+}
