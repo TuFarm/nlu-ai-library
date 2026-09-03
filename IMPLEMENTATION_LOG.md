@@ -26,3 +26,16 @@ Next: introduce service transactions and repositories, consent/auth policy, stor
 - Updated psycopg binary requirement for newer Python installers and documented Python 3.12 as the recommended runtime.
 
 Verification: `npm run build` passed (TypeScript and Vite); `git diff --check` passed. Backend tests could not run because this execution environment exposes no `python`, `py`, or `python3` executable.
+
+## 2026-09-03 — Phase 3 kiosk backend runtime
+
+- Added transaction-scoped DB dependency and structured database errors.
+- Implemented database-backed kiosk sessions/events, conversations/messages, AI request/response history, face profiles/logs and survey submissions.
+- Added multipart face enrollment/verification and voice transcription endpoints with provider isolation.
+- Added safe local media validation, randomized filenames, size limits and delete-after-processing default.
+- Added browser Web Speech transcript persistence and simple database chunk search.
+- Added real database category/book and active-survey reads.
+- Added idempotent `scripts/seed_dev.py` for device, user/profile, books, knowledge chunks and survey.
+- No migration was required; all writes fit the existing 24-table schema.
+- Real local recognition, STT, Gemini and RAG remain isolated placeholders.
+- Verification completed with a clean Python 3.12 environment: requirements installed with `psycopg-binary 3.3.5`, 21 tests passed, FastAPI imported 40 routes, Alembic offline SQL compiled, frontend production build passed, and live DB health correctly returned structured 503 because PostgreSQL was not running.

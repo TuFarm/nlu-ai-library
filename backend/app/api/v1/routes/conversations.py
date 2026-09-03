@@ -1,20 +1,32 @@
-from datetime import UTC, datetime
-from uuid import uuid4
-from fastapi import APIRouter
+from uuid import UUID
+
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.core.errors import AppError
 from app.core.responses import success_response
-from app.schemas.conversation import ConversationStart, MessageCreate
+from app.models.schema import Conversation, User, UserSession
+from app.schemas.conversation import ConversationMessageCreate, ConversationStart
+from app.services.conversation_service import save_message, start_conversation
 
 router = APIRouter()
 
+
 @router.post("/start")
-@router.post("/mock-start", include_in_schema=False)
-async def start(_: ConversationStart) -> dict: return success_response({"conversation_id": str(uuid4()), "status": "active"})
+def start(payload: ConversationStart, db: Session = Depends(get_db)) -> dict:
+    if payload.session_id and db.get(UserSession, payload.session_id) is None:
+        raise AppError(404, "SESSION_NOT_FOUND", "Không tìm thấy phiên kiosk.")
+    if payload.user_id and db.get(User, payload.user_id) is None:
+        raise AppError(404, "USER_NOT_FOUND", "Không tìm thấy người dùng.")
+    conversation = start_conversation(db, payload.session_id, payload.user_id)
+    return success_response({"conversation_id": str(conversation.id), "status": conversation.status})
+
 
 @router.post("/{conversation_id}/messages")
-@router.post("/{conversation_id}/messages/mock", include_in_schema=False)
-async def save_message(conversation_id: str, payload: MessageCreate) -> dict:
-    return success_response({"id": str(uuid4()), "conversation_id": conversation_id, "role": "user", "text": payload.text, "created_at": datetime.now(UTC).isoformat()})
-
-@router.get("/{conversation_id}/messages/mock")
-async def history(conversation_id: str) -> dict:
-    return success_response([{"id": "msg-01", "conversation_id": conversation_id, "role": "user", "text": "Thư viện mở cửa lúc mấy giờ?"}, {"id": "msg-02", "conversation_id": conversation_id, "role": "assistant", "text": "Đây là câu trả lời mô phỏng từ nguồn tri thức thư viện."}])
+def create_message(conversation_id: UUID, payload: ConversationMessageCreate, db: Session = Depends(get_db)) -> dict:
+    conversation = db.get(Conversation, conversation_id)
+    if conversation is None: raise AppError(404, "CONVERSATION_NOT_FOUND", "Không tìm thấy hội thoại.")
+    message = save_message(db, conversation, payload.sender_type, payload.message_text, payload.input_method)
+    return success_response({"id": str(message.id), "conversation_id": str(conversation_id), "sender_type": message.sender_type,
+        "message_text": message.message_text, "input_method": message.input_method, "message_time": message.message_time.isoformat()})

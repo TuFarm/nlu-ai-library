@@ -20,3 +20,18 @@ Responses use `{ success, message, data }`; validation failures use `{ success: 
 | `GET /api/v1/admin/status` | Module delivery status | Static |
 
 Older Phase 2 mock aliases remain temporarily for compatibility. No endpoint performs real authentication, recognition, parsing, RAG, provider calls or production persistence.
+
+## Phase 3 runtime endpoints
+
+- `GET /api/v1/health/db`: executes `SELECT 1`; returns structured 503 when unavailable.
+- `POST /api/v1/kiosk/sessions/{id}/events`: persists a kiosk event.
+- `POST /api/v1/face/enroll`: validated multipart enrollment; persists template reference/profile and event.
+- `POST /api/v1/face/verify`: validated frame, provider verification, auth log, session identity and event.
+- `POST /api/v1/voice/transcribe`: validated audio, configured STT provider and optional voice message.
+- `POST /api/v1/voice/browser-transcript`: persists Web Speech transcript and question event.
+- `POST /api/v1/ai/answer`: persists user message, AI request/response/message and answer event.
+- `POST /api/v1/knowledge/chunks/search/mock`: database text-match retrieval bridge.
+- `GET /api/v1/book-categories` and `/api/v1/suggested-books`: database-backed suggestions.
+- `GET /api/v1/surveys/active` and `POST /api/v1/surveys/{id}/responses`: database-backed survey flow.
+
+Session, conversation, event, survey and AI records are real PostgreSQL writes. Face matching, STT, AI generation and knowledge retrieval quality remain provider/mock implementations.

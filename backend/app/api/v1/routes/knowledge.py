@@ -1,7 +1,11 @@
 from uuid import uuid4
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+from app.core.database import get_db
+from app.models.schema import KnowledgeChunk, KnowledgeDocument
 from app.core.responses import success_response
-from app.schemas.knowledge import MockKnowledgeUpload
+from app.schemas.knowledge import KnowledgeSearch, MockKnowledgeUpload
 
 router = APIRouter()
 DOCUMENTS = [
@@ -22,3 +26,14 @@ async def upload(payload: MockKnowledgeUpload) -> dict:
 
 @router.get("/documents/mock")
 async def documents() -> dict: return success_response(DOCUMENTS)
+
+
+@router.post("/chunks/search/mock")
+def search_chunks(payload: KnowledgeSearch, db: Session = Depends(get_db)) -> dict:
+    rows = db.execute(select(KnowledgeChunk, KnowledgeDocument).join(KnowledgeDocument)
+        .where(KnowledgeDocument.is_active.is_(True), KnowledgeChunk.chunk_text.ilike(f"%{payload.query}%"))
+        .limit(payload.top_k)).all()
+    data = [{"chunk_id": str(chunk.id), "document_id": str(document.id), "title": document.title,
+        "chunk_text": chunk.chunk_text, "page_number": chunk.page_number} for chunk, document in rows]
+    message = "Đã tìm thấy ngữ cảnh phù hợp." if data else "Chưa có đoạn tri thức phù hợp."
+    return success_response(data, message)

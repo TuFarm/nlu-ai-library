@@ -6,6 +6,8 @@ Monorepo cho trợ lý lễ tân/kiosk thư viện đại học, gồm backend F
 
 Frontend có hai chế độ độc lập: Admin Web tại `/admin` dành cho nhân viên và Kiosk fullscreen tại `/kiosk/fullscreen` dành cho sinh viên. Kiosk vận hành theo luồng trạng thái tự động, không dùng sidebar như một website thông thường.
 
+Phase 3 backend đã ghi session, event, hội thoại, AI history, FaceID log và khảo sát vào PostgreSQL. Nhận diện khuôn mặt, speech-to-text và câu trả lời AI mặc định vẫn dùng provider `mock`; trình duyệt/Electron phải thu camera/microphone bằng `getUserMedia` rồi gửi media cho FastAPI.
+
 ## Kiến trúc tổng quan
 
 ```text
@@ -151,6 +153,7 @@ Các lệnh backend sau đây phải chạy trong thư mục `backend` và khi v
 ```bash
 alembic upgrade head
 alembic current
+python scripts/seed_dev.py
 ```
 
 Migration hiện có: `20260902_0001_ai_kiosk_schema.py`, tạo đúng 24 bảng của AI kiosk assistant.
@@ -190,8 +193,10 @@ Mở các địa chỉ:
 Kết quả health check mong đợi:
 
 ```json
-{"status":"ok"}
+{"success":true,"message":"OK","data":{"status":"ok","app":"AI Library Receptionist Assistant"}}
 ```
+
+FastAPI không tự tạo PostgreSQL database hoặc tables khi khởi động. SQLAlchemy chỉ kết nối khi có query. Sau `alembic upgrade head`, kiểm tra kết nối thực tế tại `GET /api/v1/health/db`.
 
 ### Bước 8: Cài và chạy frontend web
 
@@ -297,6 +302,7 @@ Tài liệu quan trọng:
 - Đối chiếu `DATABASE_URL` với tài khoản và cổng Docker Compose.
 - Kiểm tra cổng 5432 có bị PostgreSQL khác chiếm dụng không.
 - Xem `docker compose logs postgres`.
+- Nếu database chưa tồn tại, tạo trong DBeaver, dùng `createdb ai_library`, hoặc kiểm tra tên `POSTGRES_DB` trong Docker Compose.
 
 ### Alembic không tìm thấy module `app`
 

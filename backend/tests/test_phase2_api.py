@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+from uuid import UUID
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -12,6 +14,16 @@ def test_health_endpoints():
     assert detail["app_status"] == "ok"
     assert detail["database_status"] in {"connected", "unavailable"}
     assert "database_url" not in detail
+
+
+def test_database_health_reports_available_and_unavailable(monkeypatch):
+    from app.api.v1.routes import health
+    monkeypatch.setattr(health, "check_database_connection", lambda: ("connected", None))
+    assert client.get("/api/v1/health/db").status_code == 200
+    monkeypatch.setattr(health, "check_database_connection", lambda: ("unavailable", "offline"))
+    response = client.get("/api/v1/health/db")
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "DATABASE_UNAVAILABLE"
 
 
 def test_mock_user_and_student_year():
@@ -31,11 +43,17 @@ def test_mock_face_success_and_unknown_identity():
     assert unknown["next_state"] == "FACE_UNKNOWN"
 
 
-def test_kiosk_session_flow():
-    started = client.post("/api/v1/kiosk/sessions/start").json()["data"]
+def test_kiosk_session_flow(monkeypatch):
+    from app.api.v1.routes import kiosk
+    session_id = UUID("11111111-1111-1111-1111-111111111111")
+    device_id = UUID("22222222-2222-2222-2222-222222222222")
+    monkeypatch.setattr(kiosk, "start_session", lambda db, code: (
+        SimpleNamespace(id=session_id), SimpleNamespace(id=device_id)))
+    monkeypatch.setattr(kiosk, "end_session", lambda db, sid, reason: SimpleNamespace(id=sid, duration_seconds=12))
+    started = client.post("/api/v1/kiosk/sessions/start", json={"device_code": "KIOSK_DEV_01", "mode": "kiosk"}).json()["data"]
     assert started["status"] == "active"
     assert started["next_state"] == "FACE_SCANNING"
-    ended = client.post(f"/api/v1/kiosk/sessions/{started['session_id']}/end").json()["data"]
+    ended = client.post(f"/api/v1/kiosk/sessions/{started['session_id']}/end", json={"exit_reason": "COMPLETED"}).json()["data"]
     assert ended["next_state"] == "IDLE"
 
 

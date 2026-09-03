@@ -3,6 +3,7 @@ from datetime import datetime
 
 from sqlalchemy import DateTime, func, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from collections.abc import Generator
 
 from app.core.config import settings
 
@@ -24,6 +25,15 @@ class SoftDeleteMixin:
 
 engine = create_engine(settings.database_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+
+def get_db() -> Generator:
+    """FastAPI dependency providing one transaction-scoped SQLAlchemy session."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 def check_database_connection() -> tuple[str, str | None]:

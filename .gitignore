@@ -1,5 +1,6 @@
 .env
 .venv/
+.venv-codex/
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -18,6 +19,6 @@ frontend/release/
 **/win-unpacked.tmp/
 *.exe
 dist/
-
-
-
+backend/storage/media/**
+!backend/storage/media/**/
+!backend/storage/media/**/.gitkeep
