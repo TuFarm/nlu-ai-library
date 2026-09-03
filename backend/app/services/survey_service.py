@@ -1,3 +1,3 @@
 """Survey submission boundary."""
 
-# TODO: validate answers against the active versioned survey before storing them.
+# TODO: validate/store submissions against the active survey and calculate satisfaction metrics.

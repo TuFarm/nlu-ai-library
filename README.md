@@ -1,8 +1,10 @@
-# Hệ thống Quản lý Thư viện Tích hợp AI
+# Trợ lý Lễ tân Thư viện AI
 
-Monorepo cho hệ thống thư viện đại học, gồm backend FastAPI, PostgreSQL, Redis và giao diện React/TypeScript dành cho web lẫn kiosk cảm ứng. Kiến trúc dữ liệu hỗ trợ đồng thời nghiệp vụ thư viện, nghiên cứu khoa học, dashboard quản trị, BI và các quy trình AI/ML trong tương lai.
+Monorepo cho trợ lý lễ tân/kiosk thư viện đại học, gồm backend FastAPI, PostgreSQL, Redis và giao diện React/TypeScript. Đây không phải hệ thống quản lý thư viện hay mượn/trả.
 
 > Trạng thái hiện tại: nền tảng database và analytics đã được thiết kế đầy đủ; API nghiệp vụ, FaceID, Gemini, Redis client và phần lớn giao diện vẫn là các điểm mở rộng, chưa phải sản phẩm hoàn chỉnh.
+
+Frontend có hai chế độ độc lập: Admin Web tại `/admin` dành cho nhân viên và Kiosk fullscreen tại `/kiosk/fullscreen` dành cho sinh viên. Kiosk vận hành theo luồng trạng thái tự động, không dùng sidebar như một website thông thường.
 
 ## Kiến trúc tổng quan
 
@@ -37,7 +39,7 @@ nlu-library-ai/
 
 - Git
 - Docker Desktop hoặc Docker Engine có Docker Compose v2
-- Python 3.12 khuyến nghị; Python 3.11 trở lên phù hợp với mã nguồn hiện tại
+- Python 3.12 được khuyến nghị. Python 3.14 có thể gặp vấn đề tương thích với một số binary dependency chưa phát hành wheel phù hợp.
 - Node.js 20 trở lên và npm
 
 Kiểm tra các công cụ:
@@ -124,7 +126,7 @@ Windows PowerShell:
 
 ```powershell
 cd backend
-python -m venv .venv
+py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
@@ -202,6 +204,10 @@ npm run dev
 ```
 
 Mở [http://localhost:5173](http://localhost:5173). Vite lắng nghe trên `0.0.0.0:5173`, phù hợp cho thử nghiệm trong mạng nội bộ hoặc kiosk.
+
+- Landing chọn chế độ: `http://localhost:5173/`
+- Admin Web: `http://localhost:5173/admin`
+- Kiosk fullscreen: `http://localhost:5173/kiosk/fullscreen`
 
 ### Bước 9: Chạy chế độ kiosk Electron
 

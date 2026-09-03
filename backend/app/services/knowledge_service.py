@@ -1,3 +1,3 @@
 """Knowledge ingestion boundary."""
 
-# TODO: validate uploads, store files, parse supported formats, and create documents/chunks.
+# TODO: validate/store uploads, extract documents, chunk text, and track processing status.

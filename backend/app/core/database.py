@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from datetime import datetime
 
-from sqlalchemy import DateTime, func
+from sqlalchemy import DateTime, func, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 from app.core.config import settings
@@ -24,3 +24,13 @@ class SoftDeleteMixin:
 
 engine = create_engine(settings.database_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+
+def check_database_connection() -> tuple[str, str | None]:
+    """Return a safe database health result without leaking connection details."""
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        return "connected", None
+    except Exception:
+        return "unavailable", "Database connection is unavailable"

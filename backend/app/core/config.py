@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://ai_library:ai_library_dev@localhost:5432/ai_library"
     redis_url: str = "redis://localhost:6379/0"
     gemini_api_key: str = ""
+    environment: str = "development"
+    api_version: str = "v1"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
