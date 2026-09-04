@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://ai_library:ai_library_dev@localhost:5432/ai_library"
     redis_url: str = "redis://localhost:6379/0"
     gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.8-flash"
+    gemini_timeout_seconds: float = 20.0
     environment: str = "development"
     api_version: str = "v1"
     media_storage_dir: Path = Path(__file__).resolve().parents[2] / "storage" / "media"

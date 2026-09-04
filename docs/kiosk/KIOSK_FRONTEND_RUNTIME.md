@@ -1,12 +1,12 @@
 # Kiosk frontend runtime
 
-Phase 4 turns `/kiosk/fullscreen` into the browser/Electron runtime for the physical library kiosk. It is separate from the staff-only Admin Web under `/admin`.
+Phase 4 created the browser/Electron runtime; Phase 5 extends it with face registration, optional local matching and turn-based voice/TTS. It remains separate from the staff-only Admin Web under `/admin`.
 
 ## State-driven flow
 
 The kiosk is state-driven rather than menu-driven because a visitor should be guided through one obvious action at a time:
 
-`IDLE → CAMERA_PERMISSION → CAMERA_READY → FACE_SCANNING → FACE_RECOGNIZED/FACE_UNKNOWN → WELCOME → AI_CHAT → BOOK_SUGGESTION/SURVEY → THANK_YOU → IDLE`
+`IDLE → CAMERA_PERMISSION → CAMERA_READY → FACE_SCANNING → FACE_RECOGNIZED/FACE_UNKNOWN → FACE_REGISTER/WELCOME → VOICE_CHAT → BOOK_SUGGESTION/SURVEY → THANK_YOU → IDLE`
 
 `useKioskFlow` owns the reducer, active session, recognized user, conversation, messages, device state, media state, errors and last activity timestamp. Backend `next_state` values are interpreted at the FaceID boundary. Admin components and navigation are never mounted inside `KioskLayout`.
 
@@ -27,7 +27,7 @@ The idle timer pauses while speech recognition is listening and while a backend 
 
 Development builds show a small panel for recognized face, unknown face, guest bypass and reset simulations. These controls are absent from production builds. Offline values are used only when `VITE_ENABLE_MOCK_FALLBACK=true`; otherwise a clear server connection error is shown.
 
-Face matching, Gemini, RAG and server-side speech-to-text are still provider boundaries backed by Phase 3 mock implementations. The browser does not implement any of those algorithms.
+Face matching can use the optional local provider and Gemini can use its real API. Mock fallbacks remain available. RAG and server-side production speech-to-text are not implemented; the browser owns STT/TTS for this turn-based demo.
 
 ## Electron readiness
 

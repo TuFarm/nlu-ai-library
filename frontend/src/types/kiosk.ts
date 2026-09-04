@@ -1,13 +1,16 @@
 export type KioskState =
   | "IDLE" | "CAMERA_PERMISSION" | "CAMERA_READY" | "FACE_SCANNING" | "FACE_RECOGNIZED"
-  | "FACE_UNKNOWN" | "WELCOME" | "AI_CHAT" | "BOOK_SUGGESTION" | "SURVEY" | "THANK_YOU" | "ERROR";
+  | "FACE_UNKNOWN" | "FACE_REGISTER" | "WELCOME" | "AI_CHAT" | "VOICE_CHAT"
+  | "BOOK_SUGGESTION" | "SURVEY" | "THANK_YOU" | "ERROR";
 
 export type CameraStatus = "IDLE" | "REQUESTING" | "READY" | "DENIED" | "ERROR" | "STOPPED";
 export type MicStatus = "IDLE" | "LISTENING" | "PROCESSING" | "DENIED" | "UNSUPPORTED" | "ERROR";
 export type MessageInputMethod = "TEXT" | "VOICE";
+export type VoiceState = "VOICE_IDLE" | "LISTENING" | "USER_SPEAKING" | "TRANSCRIBING" | "PROCESSING_AI" | "AI_SPEAKING" | "VOICE_ERROR";
 
 export type KioskUser = {
-  id: string; student_code: string; full_name: string; faculty?: string | null; major?: string | null;
+  id: string; student_code: string | null; full_name: string; email?: string | null; phone?: string | null;
+  faculty?: string | null; major?: string | null;
   admission_year?: number | null; student_year?: number | null;
 };
 export type KioskSession = { session_id: string; device_id?: string; status: string; next_state?: KioskState };
@@ -15,7 +18,13 @@ export type KioskConversation = { conversation_id: string; status: string };
 export type KioskMessage = { id: string; role: "user" | "assistant"; text: string; inputMethod?: MessageInputMethod };
 export type FaceVerifyResult = {
   result: "SUCCESS" | "UNKNOWN_FACE" | "LOW_CONFIDENCE" | "FAILED" | string;
-  user: KioskUser | null; confidence_score: number; next_state: "WELCOME" | "FACE_UNKNOWN"; processing_time_ms?: number;
+  user: KioskUser | null; confidence_score: number | null; next_state: "WELCOME" | "FACE_UNKNOWN"; processing_time_ms?: number;
+};
+export type FaceRegistrationFields = {
+  full_name: string; student_code?: string; email?: string; phone?: string; faculty?: string; major?: string; admission_year?: number;
+};
+export type FaceEnrollmentResult = {
+  face_profile_id: string; user_id: string; user: KioskUser; provider: string; quality_score: number; next_state: "WELCOME";
 };
 export type BookCategory = { id: string; category_name: string; description?: string | null };
 export type SuggestedBook = {

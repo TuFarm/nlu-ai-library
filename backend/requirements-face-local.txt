@@ -1,0 +1,7 @@
+# Optional local FaceID adapter. Keep separate because dlib compilation can be
+# fragile on Windows. Install the base requirements first.
+# face_recognition_models still imports pkg_resources, which was removed from
+# setuptools 82. Keep the last compatible setuptools line until that package
+# migrates to importlib.resources.
+setuptools>=68,<82
+face-recognition==1.3.0

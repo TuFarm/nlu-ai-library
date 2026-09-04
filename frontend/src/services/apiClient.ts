@@ -1,4 +1,4 @@
-import type { ActiveSurvey, BookCategory, FaceVerifyResult, KioskConversation, KioskMessage, KioskSession, SuggestedBook } from "../types/kiosk";
+import type { ActiveSurvey, BookCategory, FaceEnrollmentResult, FaceRegistrationFields, FaceVerifyResult, KioskConversation, KioskMessage, KioskSession, SuggestedBook } from "../types/kiosk";
 
 type ApiEnvelope<T> = { success: boolean; message: string; data: T; error?: { code: string; details?: unknown } };
 const configuredBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:8000";
@@ -35,6 +35,18 @@ export const faceApi = {
     form.append("device_code", deviceCode); form.append("image_file", imageBlob, "kiosk-face.jpg");
     return apiClient.postForm<FaceVerifyResult>("/face/verify", form);
   },
+  enrollFace: ({ sessionId, deviceCode, imageBlob, fields }: {
+    sessionId?: string; deviceCode: string; imageBlob: Blob; fields: FaceRegistrationFields;
+  }) => {
+    const form = new FormData();
+    if (sessionId) form.append("session_id", sessionId);
+    form.append("device_code", deviceCode);
+    form.append("image_file", imageBlob, "kiosk-enrollment.jpg");
+    Object.entries(fields).forEach(([key, value]) => {
+      if (value !== undefined && value !== "") form.append(key, String(value));
+    });
+    return apiClient.postForm<FaceEnrollmentResult>("/face/enroll", form);
+  },
 };
 export const voiceApi = {
   sendBrowserTranscript: (payload: { session_id?: string; conversation_id: string; transcript: string; confidence_score?: number }) => apiClient.post<{ message_id: string; transcript: string; provider: string }>("/voice/browser-transcript", payload),
@@ -45,7 +57,7 @@ export const conversationApi = {
   getMessages: (conversationId: string) => apiClient.get<KioskMessage[]>(`/conversations/${conversationId}/messages`),
 };
 export const aiApi = {
-  answer: (payload: { conversation_id: string; session_id?: string; message_text: string; save_user_message?: boolean }) => apiClient.post<{ answer: string; provider: string; model_name: string; grounded: boolean; warning?: string | null; next_state: "AI_CHAT" }>("/ai/answer", payload),
+  answer: (payload: { conversation_id: string; session_id?: string; message_text: string; save_user_message?: boolean }) => apiClient.post<{ answer: string; provider: string; model_name: string; grounded: boolean; warning?: string | null; next_state: "AI_VOICE_CHAT" }>("/ai/answer", payload),
 };
 export const bookSuggestionApi = {
   getCategories: () => apiClient.get<BookCategory[]>("/book-categories"),

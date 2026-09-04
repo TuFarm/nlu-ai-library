@@ -53,3 +53,18 @@ Verification: `npm run build` passed (TypeScript and Vite); `git diff --check` p
 - Documented runtime architecture, device setup, state transitions, contracts, environment variables, remaining mocks and Electron readiness.
 
 Verification: `npm run build` passed (strict TypeScript project build and Vite production bundle); 21 backend tests passed; OpenAPI exposed the conversation message GET route and voice de-duplication field; live Vite HTTP smoke checks returned 200 with the React root for `/`, `/admin`, `/kiosk` and `/kiosk/fullscreen`. Hardware permission prompts remain a manual laptop check.
+
+## 2026-09-04 — Phase 5 real FaceID and live voice AI kiosk
+
+- Added optional local `face_recognition` provider with lazy imports, exactly-one-face enrollment, 128-dimensional serialized templates, multi-profile distance matching and configurable confidence.
+- Expanded `/face/enroll` to create or update users from kiosk registration fields, update the session identity, persist face profiles and record enrollment events.
+- Preserved dependency-free mock FaceID and clear `FACE_PROVIDER_UNAVAILABLE` behavior so native Windows dependencies cannot prevent backend startup.
+- Implemented Gemini REST text generation with Vietnamese kiosk system instructions, recent conversation context, configurable model/timeout and safe missing-key/network fallback.
+- Persisted Gemini fallback status in `ai_requests` and kept conversation messages, AI responses and interaction events consistent.
+- Added `useTextToSpeech` with Vietnamese voice preference, spoken welcome/answers and visible default-voice fallback.
+- Added `FaceRegistrationScreen` and `KioskVoiceChatScreen` with explicit listening, speaking, transcribing, AI processing, AI speaking and voice error states.
+- Implemented the automatic turn loop while preventing recognition during synthesized speech; retained keyboard and quick-question fallback.
+- Updated timeout, development controls, provider environment examples, privacy warnings and manual camera/microphone test procedures.
+- Kept local FaceID in a separate optional requirements file; no migration was needed because the existing face template binary column supports development embeddings.
+
+Verification: frontend production build passed; backend suite increased to 27 tests covering missing image, unknown face, optional-provider endpoint failure and Gemini missing-key endpoint fallback. Physical camera/microphone/TTS and a real Gemini key remain manual integration checks on the target laptop.

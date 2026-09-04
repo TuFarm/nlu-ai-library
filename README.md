@@ -2,11 +2,11 @@
 
 Monorepo cho trợ lý lễ tân/kiosk thư viện đại học, gồm backend FastAPI, PostgreSQL, Redis và giao diện React/TypeScript. Đây không phải hệ thống quản lý thư viện hay mượn/trả.
 
-> Trạng thái hiện tại: Phase 4 kiosk frontend runtime đã dùng camera laptop, chụp khung hình, nhận transcript giọng nói trình duyệt, gọi các API Phase 3 và tự điều hướng theo state machine. Face matching, Gemini, RAG và server-side STT thật vẫn là các provider mock.
+> Trạng thái hiện tại: Phase 5 đã bổ sung đăng ký khuôn mặt, provider FaceID local tùy chọn, Gemini thật có fallback, lời chào/TTS và vòng hội thoại giọng nói theo lượt. RAG, streaming voice và bảo mật sinh trắc học production chưa được triển khai.
 
 Frontend có hai chế độ độc lập: Admin Web tại `/admin` dành cho nhân viên và Kiosk fullscreen tại `/kiosk/fullscreen` dành cho sinh viên. Kiosk vận hành theo luồng trạng thái tự động, không dùng sidebar như một website thông thường.
 
-Phase 3 backend đã ghi session, event, hội thoại, AI history, FaceID log và khảo sát vào PostgreSQL. Nhận diện khuôn mặt, speech-to-text và câu trả lời AI mặc định vẫn dùng provider `mock`; trình duyệt/Electron phải thu camera/microphone bằng `getUserMedia` rồi gửi media cho FastAPI.
+Backend ghi session, event, hội thoại, AI history, FaceID log và khảo sát vào PostgreSQL. FaceID mặc định vẫn là `mock`; có thể bật provider `local`. Gemini được dùng khi `AI_PROVIDER=gemini` và có API key. Trình duyệt/Electron thu camera, Web Speech và phát TTS.
 
 ## Kiến trúc tổng quan
 
@@ -90,9 +90,13 @@ API_V1_PREFIX=/api/v1
 DATABASE_URL=postgresql+psycopg://ai_library:ai_library_dev@localhost:5432/ai_library
 REDIS_URL=redis://localhost:6379/0
 GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.8-flash
+FACE_PROVIDER=mock
+VOICE_PROVIDER=browser
+AI_PROVIDER=mock
 ```
 
-Không commit `backend/.env` hoặc API key thật. `GEMINI_API_KEY` có thể để trống vì tích hợp Gemini chưa được triển khai.
+Không commit `backend/.env` hoặc API key thật. Nếu `AI_PROVIDER=gemini` nhưng key trống hoặc Gemini lỗi, backend lưu trạng thái fallback và trả lời an toàn bằng mock thay vì làm hỏng phiên kiosk.
 
 Docker Compose đọc file `.env` ở thư mục gốc nếu có. Khi dùng thông số mặc định, không cần tạo file này. Nếu muốn tùy chỉnh container, tạo `.env` tại thư mục gốc:
 
@@ -145,6 +149,14 @@ python -m pip install -r requirements.txt
 ```
 
 Các lệnh backend sau đây phải chạy trong thư mục `backend` và khi virtual environment đang được kích hoạt.
+
+FaceID local là tùy chọn vì `dlib` có thể khó cài trên Windows:
+
+```powershell
+python -m pip install -r requirements-face-local.txt
+```
+
+Sau đó đặt `FACE_PROVIDER=local`. Nếu không cài được, giữ `FACE_PROVIDER=mock`; backend vẫn khởi động bình thường.
 
 ### Bước 5: Tạo database schema bằng Alembic
 
@@ -214,7 +226,7 @@ Mở [http://localhost:5173](http://localhost:5173). Vite lắng nghe trên `0.0
 - Admin Web: `http://localhost:5173/admin`
 - Kiosk fullscreen: `http://localhost:5173/kiosk/fullscreen`
 
-Tạo `frontend/.env` từ `frontend/.env.example` nếu cần đổi backend, mã thiết bị, mock fallback hoặc timeout. Tại kiosk fullscreen, nhấn **Bắt đầu phiên thử nghiệm**, cho phép camera, nhìn vào khung quét, rồi dùng **Nhấn để nói** trong màn hình chat để cấp quyền microphone. Nếu Web Speech không được hỗ trợ, nhập câu hỏi bằng bàn phím.
+Tạo `frontend/.env` từ `frontend/.env.example` nếu cần đổi backend, mã thiết bị, mock fallback, timeout hoặc dev controls. Tại kiosk fullscreen, cho phép camera, đăng ký/thử lại/đi tiếp dưới dạng khách, rồi cho phép microphone. AI sẽ đọc lời chào, nghe một lượt, trả lời, đọc đáp án và quay lại nghe. Nếu Web Speech không được hỗ trợ, nhập bằng bàn phím.
 
 ### Bước 9: Chạy chế độ kiosk Electron
 
@@ -336,29 +348,32 @@ python -m pytest -q
 
 Luôn đọc và review migration được sinh ra trước khi chạy trên database dùng chung.
 
-## Trạng thái triển khai sau Phase 4
+## Trạng thái triển khai sau Phase 5
 
 Đã sẵn sàng để thử trên laptop:
 
 - session kiosk, timeout và tự trở về idle;
 - camera permission, preview, canvas JPEG capture và multipart face verification;
 - recognized/unknown/guest welcome;
-- chat text, câu hỏi nhanh và Web Speech `vi-VN`;
+- form tạo/cập nhật user và đăng ký mẫu khuôn mặt;
+- FaceID local tùy chọn với embedding 128 chiều và so khớp nhiều profile;
+- Gemini REST với lịch sử hội thoại, system instruction tiếng Việt và fallback có ghi nhận;
+- vòng Web Speech → AI → SpeechSynthesis → Web Speech, cùng text fallback;
 - dữ liệu thể loại/sách/khảo sát từ backend;
 - fallback có kiểm soát bằng `VITE_ENABLE_MOCK_FALLBACK`;
 - fullscreen web và Electron development shell.
 
-Xem [Kiosk frontend runtime](docs/kiosk/KIOSK_FRONTEND_RUNTIME.md), [Camera/microphone setup](docs/kiosk/CAMERA_MIC_SETUP.md), [State machine](docs/kiosk/KIOSK_STATE_MACHINE.md) và [Frontend/backend contract](docs/kiosk/FRONTEND_BACKEND_CONTRACT.md).
+Xem [FaceID runtime](docs/kiosk/FACEID_RUNTIME.md), [Voice runtime](docs/kiosk/VOICE_RUNTIME.md), [kiểm thử camera/mic](docs/kiosk/TESTING_CAMERA_MIC.md), [Gemini](docs/backend/GEMINI_INTEGRATION.md), [face provider](docs/backend/FACE_PROVIDER.md) và [state machine](docs/kiosk/KIOSK_STATE_MACHINE.md).
 
 ## Những phần chưa triển khai
 
 - CRUD/API nghiệp vụ hoàn chỉnh
 - Authentication và phân quyền runtime
-- Thuật toán/nhà cung cấp FaceID production và quy trình consent/enrollment
-- Gemini request thực tế và quản lý prompt runtime
+- FaceID production: liveness, encryption/key management, consent, retention và deletion
+- RAG/tài liệu chính thức; câu trả lời Gemini hiện chưa grounded
 - Redis cache/session client
 - Job tổng hợp `daily_report_metrics`
-- Browser-independent/onsite speech-to-text production
+- Streaming/full-duplex voice và STT onsite độc lập trình duyệt
 - Basic dashboard API và UI hoàn chỉnh
 - CI/CD và cấu hình production
 
