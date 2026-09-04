@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
+import { canStartFaceVerification, KIOSK_TIMING, wait } from "../config/kioskRuntime";
 import { aiApi, conversationApi, faceApi, kioskApi, MOCK_FALLBACK_ENABLED, voiceApi } from "../services/apiClient";
 import type { CameraStatus, FaceRegistrationFields, FaceVerifyResult, KioskAction, KioskConversation, KioskFlowState, KioskMessage, KioskState, MessageInputMethod, MicStatus } from "../types/kiosk";
 
@@ -9,7 +10,7 @@ const MOCK_USER = {
   faculty: "Khoa Công nghệ Thông tin", major: "Công nghệ thông tin", admission_year: 2024, student_year: 3,
 };
 
-function initialState(): KioskFlowState {
+export function initialState(): KioskFlowState {
   return {
     currentState: "IDLE", session: null, device: { code: DEVICE_CODE }, user: null, conversation: null,
     cameraStatus: "IDLE", micStatus: "IDLE", lastFaceResult: null, messages: [], currentTranscript: "",
@@ -18,25 +19,27 @@ function initialState(): KioskFlowState {
   };
 }
 
-function reducer(state: KioskFlowState, action: KioskAction): KioskFlowState {
+export function reducer(state: KioskFlowState, action: KioskAction): KioskFlowState {
   const active = { lastActivityAt: Date.now() };
   switch (action.type) {
-    case "START_SESSION": return { ...initialState(), session: action.session, device: { code: DEVICE_CODE, id: action.session.device_id }, currentState: "CAMERA_PERMISSION", ...active };
-    case "CAMERA_PERMISSION_GRANTED": return { ...state, cameraStatus: "READY", currentState: "CAMERA_READY", error: null, ...active };
+    case "START_SESSION": return { ...initialState(), session: action.session, device: { code: DEVICE_CODE, id: action.session.device_id }, cameraStatus: state.cameraStatus, currentState: "PRESENCE_DETECTED", ...active };
+    case "CAMERA_PERMISSION_GRANTED": return { ...state, cameraStatus: "READY",
+      currentState: state.currentState === "CAMERA_PERMISSION" ? "IDLE" : state.currentState, error: null, ...active };
     case "CAMERA_PERMISSION_DENIED": return { ...state, cameraStatus: "DENIED", currentState: "CAMERA_PERMISSION", error: action.error ?? null, ...active };
-    case "START_FACE_SCAN": return { ...state, currentState: "FACE_SCANNING", error: null, ...active };
-    case "FACE_VERIFY_SUCCESS": return { ...state, lastFaceResult: action.result, user: action.result.user, currentState: "FACE_RECOGNIZED", isProcessing: false, ...active };
-    case "FACE_VERIFY_UNKNOWN": return { ...state, lastFaceResult: action.result, user: null, currentState: "FACE_UNKNOWN", isProcessing: false, ...active };
-    case "FACE_VERIFY_FAILED": return { ...state, error: action.error, currentState: "FACE_UNKNOWN", isProcessing: false, ...active };
-    case "CONTINUE_AS_GUEST": return { ...state, user: null, currentState: "WELCOME", error: null, ...active };
+    case "START_FACE_SCAN": return { ...state, currentState: "CAMERA_PREPARING", error: null, ...active };
+    case "FACE_VERIFY_SUCCESS": return { ...state, lastFaceResult: action.result, user: action.result.user, currentState: "FACE_SUCCESS", isProcessing: false, ...active };
+    case "FACE_VERIFY_UNKNOWN": return { ...state, lastFaceResult: action.result, user: null, currentState: "UNKNOWN_FACE", isProcessing: false, ...active };
+    case "FACE_VERIFY_FAILED": return { ...state, error: action.error, currentState: "UNKNOWN_FACE", isProcessing: false, ...active };
+    case "FACE_ENROLL_SUCCESS": return { ...state, lastFaceResult: action.result, user: action.result.user, currentState: "REGISTER_SUCCESS", isProcessing: false, ...active };
+    case "CONTINUE_AS_GUEST": return { ...state, user: null, currentState: "GREETING", error: null, ...active };
     case "START_CONVERSATION": {
       const greeting: KioskMessage = { id: crypto.randomUUID(), role: "assistant", text: state.user
         ? `Xin chào ${state.user.full_name}! Hôm nay tôi có thể giúp gì cho bạn?`
         : "Xin chào bạn, tôi là trợ lý AI thư viện. Bạn cần hỗ trợ gì hôm nay?" };
-      return { ...state, conversation: action.conversation, currentState: "VOICE_CHAT", messages: state.messages.length ? state.messages : [greeting], isProcessing: false, ...active };
+      return { ...state, conversation: action.conversation, currentState: "VOICE_GREETING", messages: state.messages.length ? state.messages : [greeting], isProcessing: false, ...active };
     }
-    case "USER_MESSAGE_SUBMITTED": return { ...state, messages: [...state.messages, action.message], currentTranscript: action.message.text, isProcessing: true, ...active };
-    case "AI_RESPONSE_RECEIVED": return { ...state, messages: [...state.messages, action.message], lastAiResponse: action.message.text, isProcessing: false, mockFallbackActive: state.mockFallbackActive || Boolean(action.mockFallback), ...active };
+    case "USER_MESSAGE_SUBMITTED": return { ...state, messages: [...state.messages, action.message], currentTranscript: action.message.text, currentState: "PROCESSING", isProcessing: true, ...active };
+    case "AI_RESPONSE_RECEIVED": return { ...state, messages: [...state.messages, action.message], lastAiResponse: action.message.text, currentState: "AI_SPEAKING", isProcessing: false, mockFallbackActive: state.mockFallbackActive || Boolean(action.mockFallback), ...active };
     case "OPEN_BOOK_SUGGESTIONS": return { ...state, currentState: "BOOK_SUGGESTION", ...active };
     case "OPEN_SURVEY": return { ...state, currentState: "SURVEY", ...active };
     case "SURVEY_SUBMITTED": return { ...state, currentState: "THANK_YOU", ...active };
@@ -58,6 +61,8 @@ export function useKioskFlow(timeoutSeconds = Number(import.meta.env.VITE_KIOSK_
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const stateRef = useRef(state);
   const endedSessionRef = useRef<string | null>(null);
+  const verifyInFlightRef = useRef(false);
+  const lastVerifyAtRef = useRef(0);
   stateRef.current = state;
 
   const endCurrentSession = useCallback(async (exitReason: string) => {
@@ -95,18 +100,30 @@ export function useKioskFlow(timeoutSeconds = Number(import.meta.env.VITE_KIOSK_
   const startFaceScan = useCallback(() => dispatch({ type: "START_FACE_SCAN" }), []);
 
   const verifyFace = useCallback(async (imageBlob: Blob) => {
+    const now = Date.now();
+    if (!canStartFaceVerification(verifyInFlightRef.current, lastVerifyAtRef.current, now)) return false;
+    verifyInFlightRef.current = true;
+    lastVerifyAtRef.current = now;
     dispatch({ type: "SET_PROCESSING", value: true });
+    dispatch({ type: "TRANSITION", state: "VERIFYING" });
+    const started = performance.now();
     try {
       const current = stateRef.current;
       const result = await faceApi.verifyFace({ sessionId: current.session?.session_id, deviceCode: current.device.code, imageBlob });
+      await wait(Math.max(0, KIOSK_TIMING.minimumVerificationMs - (performance.now() - started)));
       dispatch({ type: result.next_state === "WELCOME" && result.user ? "FACE_VERIFY_SUCCESS" : "FACE_VERIFY_UNKNOWN", result });
     } catch (reason) {
+      await wait(Math.max(0, KIOSK_TIMING.minimumVerificationMs - (performance.now() - started)));
       dispatch({ type: "FACE_VERIFY_FAILED", error: reason instanceof Error ? reason.message : "Không thể xác minh khuôn mặt." });
+    } finally {
+      verifyInFlightRef.current = false;
     }
+    return true;
   }, []);
 
   const enrollFace = useCallback(async (fields: FaceRegistrationFields, imageBlob: Blob) => {
     dispatch({ type: "SET_PROCESSING", value: true });
+    dispatch({ type: "TRANSITION", state: "REGISTER_PROCESSING" });
     try {
       const current = stateRef.current;
       const enrolled = await faceApi.enrollFace({
@@ -115,10 +132,10 @@ export function useKioskFlow(timeoutSeconds = Number(import.meta.env.VITE_KIOSK_
       const result: FaceVerifyResult = {
         result: "SUCCESS", user: enrolled.user, confidence_score: enrolled.quality_score, next_state: "WELCOME",
       };
-      dispatch({ type: "FACE_VERIFY_SUCCESS", result });
+      dispatch({ type: "FACE_ENROLL_SUCCESS", result });
       return enrolled;
     } catch (reason) {
-      dispatch({ type: "TRANSITION", state: "FACE_REGISTER" });
+      dispatch({ type: "TRANSITION", state: "REGISTER" });
       dispatch({ type: "SET_PROCESSING", value: false });
       throw reason;
     }
@@ -141,7 +158,7 @@ export function useKioskFlow(timeoutSeconds = Number(import.meta.env.VITE_KIOSK_
   }, [logEvent]);
   const startConversation = useCallback(async (): Promise<KioskConversation | null> => {
     if (stateRef.current.conversation) {
-      dispatch({ type: "TRANSITION", state: "VOICE_CHAT" });
+      dispatch({ type: "TRANSITION", state: "VOICE_LISTENING" });
       return stateRef.current.conversation;
     }
     dispatch({ type: "SET_PROCESSING", value: true });
@@ -201,23 +218,27 @@ export function useKioskFlow(timeoutSeconds = Number(import.meta.env.VITE_KIOSK_
   const touch = useCallback(() => dispatch({ type: "TOUCH" }), []);
 
   useEffect(() => {
-    if (state.currentState === "CAMERA_READY") {
-      const id = window.setTimeout(() => dispatch({ type: "START_FACE_SCAN" }), 650);
+    if (state.currentState === "PRESENCE_DETECTED") {
+      const id = window.setTimeout(() => dispatch({ type: "START_FACE_SCAN" }), KIOSK_TIMING.presenceConfirmationMs);
       return () => window.clearTimeout(id);
     }
-    if (state.currentState === "FACE_RECOGNIZED") {
-      const id = window.setTimeout(() => dispatch({ type: "TRANSITION", state: "WELCOME" }), 900);
+    if (state.currentState === "FACE_SUCCESS") {
+      const id = window.setTimeout(() => dispatch({ type: "TRANSITION", state: "GREETING" }), 800);
       return () => window.clearTimeout(id);
     }
-    if (state.currentState === "WELCOME") {
-      const id = window.setTimeout(() => { void startConversation(); }, 2600);
+    if (state.currentState === "REGISTER_SUCCESS") {
+      const id = window.setTimeout(() => dispatch({ type: "TRANSITION", state: "GREETING" }), KIOSK_TIMING.registrationSuccessMs);
       return () => window.clearTimeout(id);
     }
     if (state.currentState === "THANK_YOU") {
-      const id = window.setTimeout(() => { void resetToIdle("COMPLETED"); }, 5000);
+      const id = window.setTimeout(() => dispatch({ type: "TRANSITION", state: "RETURN_IDLE" }), KIOSK_TIMING.thankYouMs);
       return () => window.clearTimeout(id);
     }
-  }, [state.currentState, resetToIdle, startConversation]);
+    if (state.currentState === "RETURN_IDLE") {
+      const id = window.setTimeout(() => { void resetToIdle("COMPLETED"); }, KIOSK_TIMING.returnIdleMs);
+      return () => window.clearTimeout(id);
+    }
+  }, [state.currentState, resetToIdle]);
 
   useEffect(() => {
     if (state.currentState === "IDLE" || state.isProcessing || state.micStatus === "LISTENING" || state.micStatus === "PROCESSING") return;

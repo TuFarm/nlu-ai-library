@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export type SpeakOptions = { lang?: string; rate?: number; pitch?: number; volume?: number };
 
@@ -7,6 +7,8 @@ export function useTextToSpeech() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const activeResolveRef = useRef<(() => void) | null>(null);
+  const generationRef = useRef(0);
 
   useEffect(() => {
     if (!supported) return;
@@ -21,7 +23,10 @@ export function useTextToSpeech() {
     ? "Trình duyệt chưa có giọng đọc tiếng Việt phù hợp." : null;
 
   const stop = useCallback(() => {
+    generationRef.current += 1;
     if (supported) window.speechSynthesis.cancel();
+    activeResolveRef.current?.();
+    activeResolveRef.current = null;
     setIsSpeaking(false);
   }, [supported]);
 
@@ -32,6 +37,10 @@ export function useTextToSpeech() {
       return;
     }
     window.speechSynthesis.cancel();
+    activeResolveRef.current?.();
+    generationRef.current += 1;
+    const generation = generationRef.current;
+    activeResolveRef.current = resolve;
     setError(null);
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = options.lang ?? "vi-VN";
@@ -40,9 +49,12 @@ export function useTextToSpeech() {
     utterance.volume = options.volume ?? 1;
     if (vietnameseVoice) utterance.voice = vietnameseVoice;
     utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => { setIsSpeaking(false); resolve(); };
+    utterance.onend = () => {
+      if (generation === generationRef.current) { setIsSpeaking(false); activeResolveRef.current = null; }
+      resolve();
+    };
     utterance.onerror = (event) => {
-      setIsSpeaking(false);
+      if (generation === generationRef.current) { setIsSpeaking(false); activeResolveRef.current = null; }
       if (event.error !== "canceled" && event.error !== "interrupted") setError("Không thể đọc câu trả lời thành tiếng.");
       resolve();
     };

@@ -226,7 +226,9 @@ Mở [http://localhost:5173](http://localhost:5173). Vite lắng nghe trên `0.0
 - Admin Web: `http://localhost:5173/admin`
 - Kiosk fullscreen: `http://localhost:5173/kiosk/fullscreen`
 
-Tạo `frontend/.env` từ `frontend/.env.example` nếu cần đổi backend, mã thiết bị, mock fallback, timeout hoặc dev controls. Tại kiosk fullscreen, cho phép camera, đăng ký/thử lại/đi tiếp dưới dạng khách, rồi cho phép microphone. AI sẽ đọc lời chào, nghe một lượt, trả lời, đọc đáp án và quay lại nghe. Nếu Web Speech không được hỗ trợ, nhập bằng bàn phím.
+Tạo `frontend/.env` từ `frontend/.env.example` nếu cần đổi backend, mã thiết bị, mock fallback, timeout hoặc dev controls. Tại kiosk fullscreen, camera chạy nền và tự xác nhận hiện diện; người dùng không cần bấm nút bắt đầu. Kiosk hướng dẫn ổn định khuôn mặt, đếm ngược, chụp đúng một ảnh, xác minh, chào bằng TTS rồi tự mở micro sau 500 ms im lặng. Nếu Web Speech không được hỗ trợ, ô nhập bàn phím mới xuất hiện.
+
+Phase 5.5 centralizes production timing and the continuous Electron-ready state machine. See [Kiosk UX runtime](docs/kiosk/KIOSK_UX_RUNTIME.md), [state timeline](docs/kiosk/STATE_TIMELINE.md), and [Electron readiness](docs/kiosk/ELECTRON_READY.md).
 
 ### Bước 9: Chạy chế độ kiosk Electron
 

@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react";
+import { SuccessAnimation } from "../../components/kiosk/KioskAnimations";
+import { KIOSK_TIMING, wait } from "../../config/kioskRuntime";
 import { useTextToSpeech } from "../../hooks/useTextToSpeech";
 import type { KioskUser } from "../../types/kiosk";
 export default function WelcomeScreen({ user, onContinue }: { user: KioskUser | null; onContinue: () => void }) {
@@ -9,10 +11,17 @@ export default function WelcomeScreen({ user, onContinue }: { user: KioskUser | 
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    void speakRef.current(user ? `Xin chào ${user.full_name}. Rất vui được gặp lại bạn.` : "Xin chào bạn. Rất vui được gặp bạn.");
-    return () => { started.current = false; tts.stop(); };
+    let active = true;
+    void (async () => {
+      await wait(KIOSK_TIMING.welcomeDisplayMs);
+      if (!active) return;
+      await speakRef.current(user ? `Xin chào ${user.full_name}. Rất vui được gặp lại bạn.` : "Xin chào bạn. Rất vui được gặp bạn.");
+      await wait(KIOSK_TIMING.postSpeechSilenceMs);
+      if (active) onContinue();
+    })();
+    return () => { active = false; started.current = false; tts.stop(); };
   }, []);
-  return <div className="kiosk-center welcome-smile"><div className="welcome-avatar">☺<span>✓</span></div>
+  return <div className="kiosk-center welcome-smile"><SuccessAnimation/>
     <span className="kiosk-kicker">{user ? "NHẬN DIỆN THÀNH CÔNG" : "CHẾ ĐỘ KHÁCH"}</span>
     <h1>Xin chào, {user?.full_name ?? "bạn"}!</h1>
     <p>{user ? "Rất vui được gặp lại bạn tại Thư viện Đại học Nông Lâm." : "Tôi là trợ lý AI thư viện. Bạn cần hỗ trợ gì hôm nay?"}</p>
@@ -23,7 +32,6 @@ export default function WelcomeScreen({ user, onContinue }: { user: KioskUser | 
         <div><dt>Khóa tuyển sinh</dt><dd>{user.admission_year ?? "Chưa cập nhật"}</dd></div>
         <div><dt>Sinh viên năm</dt><dd>{user.student_year ?? "Chưa cập nhật"}</dd></div>
       </dl></div>}
-    <button className="kiosk-primary" onClick={onContinue}>Tiếp tục →</button>
-    <small>{tts.notice ?? "Tự động chuyển sang trò chuyện giọng nói sau vài giây"}</small>
+    <small>{tts.notice ?? (tts.isSpeaking ? "Trợ lý đang chào bạn…" : "Tự động chuyển sang trò chuyện giọng nói")}</small>
   </div>;
 }

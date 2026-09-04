@@ -68,3 +68,28 @@ Verification: `npm run build` passed (strict TypeScript project build and Vite p
 - Kept local FaceID in a separate optional requirements file; no migration was needed because the existing face template binary column supports development embeddings.
 
 Verification: frontend production build passed; backend suite increased to 27 tests covering missing image, unknown face, optional-provider endpoint failure and Gemini missing-key endpoint fallback. Physical camera/microphone/TTS and a real Gemini key remain manual integration checks on the target laptop.
+
+## 2026-09-04 — Phase 5.5 production kiosk UX runtime
+
+- Replaced the click-to-start website flow with automatic camera observation, confirmed presence, camera preparation, face stabilization, 3–2–1 countdown, one-frame capture and a paced verification state.
+- Expanded the state machine for presence, capture, verification, greeting, continuous voice phases, guided registration, thank-you and return-to-idle transitions.
+- Added centralized timing, cooldown and microphone activation rules plus reusable transition, assistant, listening, scanning, countdown and success animations.
+- Added native FaceDetector support with a low-resolution motion/contrast fallback for development environments.
+- Added an in-flight verification lock, two-second retry cooldown, 30 fps camera cap, recognition activation lock and overlap-safe speech synthesis.
+- Rebuilt enrollment as a progressive information → capture → processing → success wizard.
+- Removed the idle start button and manual microphone control from the normal voice path; keyboard input appears only as an unsupported-browser fallback.
+- Added three-second identity welcome, TTS-complete plus 500 ms microphone handoff, three-second goodbye and smooth state transitions.
+- Added Phase 5.5 runtime, timeline and Electron packaging documentation.
+- Added Vitest coverage for core state transitions, success/unknown/registration branches, duplicate verification, microphone guards and production timing.
+
+Verification: 5 frontend runtime tests passed, strict TypeScript/Vite production build passed, and the live kiosk development route returned HTTP 200. Physical presence calibration, microphone/TTS behavior and camera permissions remain manual tests on the target kiosk.
+
+### Phase 5.5 camera lifecycle correction
+
+- Fixed capture failures caused by the visible camera preview unmounting during countdown.
+- Added a persistent internal capture video that remains attached to the live stream independently of screen transitions.
+- Camera requests are now deduplicated, reuse a live stream, wait for real video dimensions and recover a stopped stream before retry or registration.
+- Camera reconnection no longer resets an active scan back to idle, and stale stability results cannot skip directly to countdown.
+- Camera failures now open the recoverable permission screen instead of being misclassified as an unknown face.
+
+Verification: 7 frontend runtime tests passed, production build passed, and the live kiosk route returned HTTP 200.

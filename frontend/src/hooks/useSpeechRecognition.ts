@@ -10,6 +10,7 @@ type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
 export function useSpeechRecognition(onFinalTranscript?: (transcript: string, confidence?: number) => void) {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const listeningRef = useRef(false);
   const callbackRef = useRef(onFinalTranscript);
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -21,12 +22,17 @@ export function useSpeechRecognition(onFinalTranscript?: (transcript: string, co
   const Recognition = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
   const isSupported = Boolean(Recognition);
 
-  const stopListening = useCallback(() => recognitionRef.current?.stop(), []);
+  const stopListening = useCallback(() => {
+    listeningRef.current = false;
+    recognitionRef.current?.stop();
+  }, []);
   const startListening = useCallback(() => {
     if (!Recognition) {
       setError("Trình duyệt hiện không hỗ trợ nhận dạng giọng nói. Vui lòng nhập câu hỏi bằng bàn phím.");
       return;
     }
+    if (listeningRef.current) return;
+    listeningRef.current = true;
     setTranscript(""); setInterimTranscript(""); setError(null);
     const recognition = new Recognition();
     recognition.lang = "vi-VN"; recognition.continuous = false; recognition.interimResults = true;
@@ -45,14 +51,15 @@ export function useSpeechRecognition(onFinalTranscript?: (transcript: string, co
       }
     };
     recognition.onerror = (event) => {
+      listeningRef.current = false;
       setIsListening(false);
       setError(event.error === "not-allowed"
         ? "Micro chưa được cấp quyền. Bạn vẫn có thể nhập câu hỏi bằng bàn phím."
         : "Không thể nhận dạng giọng nói. Vui lòng thử lại hoặc nhập câu hỏi.");
     };
-    recognition.onend = () => setIsListening(false);
+    recognition.onend = () => { listeningRef.current = false; setIsListening(false); };
     recognitionRef.current = recognition;
-    try { recognition.start(); setIsListening(true); } catch { setError("Micro đang bận. Vui lòng đợi một chút rồi thử lại."); }
+    try { recognition.start(); setIsListening(true); } catch { listeningRef.current = false; setError("Micro đang bận. Vui lòng đợi một chút rồi thử lại."); }
   }, [Recognition]);
   useEffect(() => () => recognitionRef.current?.abort(), []);
   return { startListening, stopListening, transcript, interimTranscript, isListening, isSupported, confidence, error };
