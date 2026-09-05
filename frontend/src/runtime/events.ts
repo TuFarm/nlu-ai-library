@@ -1,0 +1,18 @@
+export const RuntimeEvent = {
+  presenceDetected: "presence_detected", presenceLost: "presence_lost",
+  cameraReady: "camera_ready", cameraStopped: "camera_stopped",
+  faceDetected: "face_detected", faceTracking: "face_tracking",
+  faceQualityGood: "face_quality_good", faceQualityBad: "face_quality_bad",
+  recognitionStarted: "recognition_started", recognitionProgress: "recognition_progress",
+  identityCandidate: "identity_candidate", identityConfirmed: "identity_confirmed",
+  identityUnknown: "identity_unknown", registrationRequested: "registration_requested",
+  voiceReady: "voice_ready", sessionReset: "session_reset",
+  transcriptUpdated: "transcript_updated",
+  aiListeningStarted: "ai_listening_started", aiListeningStopped: "ai_listening_stopped",
+  aiSpeakingStarted: "ai_speaking_started", aiSpeakingFinished: "ai_speaking_finished",
+  streamReady: "stream_ready", frameReady: "frame_ready",
+  streamDisconnected: "stream_disconnected", streamError: "stream_error",
+  pong: "pong", transportLatency: "transport_latency",
+  aiProcessingStarted: "ai_processing_started", aiProcessingFinished: "ai_processing_finished",
+  requestError: "request_error",
+} as const;
