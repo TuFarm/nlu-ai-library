@@ -22,7 +22,18 @@ def test_tracking_retains_id_and_clears_votes_after_loss():
     assert not track.vote("a")
     service.track([], 10.3)
     assert track.votes == 0
-    assert service.track([(11, 151, 151, 11)], 12)[0].id != track.id
+    assert service.track([(11, 151, 151, 11)], 12)[0].id == track.id
+    for frame in range(6):
+        service.track([], 13 + frame)
+    assert service.track([(11, 151, 151, 11)], 20)[0].id != track.id
+
+
+def test_tracking_is_not_expired_by_slow_frame_processing():
+    service = RealtimeFaceService()
+    first = service.track([(10, 150, 150, 10)], 1)[0]
+    second = service.track([(14, 154, 154, 14)], 4.5)[0]
+    assert second.id == first.id
+    assert second.hits == 2
 
 
 def test_identity_must_match_three_consecutive_observations():
@@ -90,7 +101,8 @@ def test_confirmation_requires_three_frames_and_client_acceptance(monkeypatch):
         return None, [{"track_id": 1, "quality_ok": True, "box": [0, 100, 100, 0], "guidance": None}]
     monkeypatch.setattr(VisionEngine, "inspect", inspect)
     result = SimpleNamespace(result="SUCCESS", user_id=uuid4(), confidence_score=.93)
-    monkeypatch.setattr(runtime, "recognize", lambda _: result)
+    monkeypatch.setattr(runtime, "load_candidates", lambda: [])
+    monkeypatch.setattr(RecognitionService, "recognize", lambda self, image, box, candidates: result)
     confirmations = []
     monkeypatch.setattr(runtime, "confirm", lambda session, match: confirmations.append(session) or {"user": {"id": str(match.user_id)}})
     with TestClient(app) as client, client.websocket_connect("/api/v1/kiosk/stream", headers={"origin": "http://localhost:5173"}) as socket:

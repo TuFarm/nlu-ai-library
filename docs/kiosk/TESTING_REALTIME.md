@@ -6,7 +6,7 @@ From backend: .venv-codex/Scripts/python.exe -m pytest -q -p no:cacheprovider (o
 
 From frontend: npm test and npm run build.
 
-Tests cover track continuity and expiry, independent tracks, identity streak resets, three-frame confirmation with explicit acceptance, frozen recognition after success, origin rejection, malformed-frame recovery, guarded transitions, subscription cleanup, one-frame backpressure, obsolete sockets and interrupted turns. Existing schema/API/service tests remain in the suite.
+Tests cover track continuity across multi-second processing gaps, missed-frame expiry, independent tracks, identity streak resets, distance-threshold matching, embedding diagnostics, three-frame confirmation with explicit acceptance, frozen recognition after success, origin rejection, malformed-frame recovery, guarded transitions, subscription cleanup, one-frame backpressure, obsolete sockets and interrupted turns. Existing schema/API/service tests remain in the suite.
 
 ## Local setup
 
@@ -27,6 +27,8 @@ Tests cover track continuity and expiry, independent tracks, identity streak res
 | Small face, dim/overexposed light, blur, head turn, closed/occluded eyes | Guidance; matching pauses |
 | Two visitors | Independent Track IDs; matching pauses |
 | Same known visitor on three eligible observations | One identity confirmation, camera tracks stopped before welcome |
+| One still visitor during slow processing | Track ID remains stable; recreation rate approaches zero |
+| Developer diagnostics | Server detection FPS and stage latency differ clearly from frontend capture FPS; missing score is `--` |
 | Alternating identities / missed face / bad quality | Streak resets; no single-frame acceptance |
 | Unknown visitor for 20 seconds | Only Register Face is offered; no retry or guest button; recognition continues |
 | Register after fields | Fresh quality-approved frame submits automatically |
@@ -53,4 +55,4 @@ First validate the kiosk hardware and speech adapters, calibrate/liveness-test r
 
 ## Verification recorded on 2026-09-05
 
-34 backend tests and 13 frontend tests passed; TypeScript/Vite production build passed. Idle UI was inspected in the browser at 1280 × 720. No live camera identity, microphone conversation, Windows installer, or physical sensor test was performed. One existing Starlette test-client deprecation warning remains.
+39 backend tests and 13 frontend tests passed; the TypeScript/Vite production build and Electron main/preload syntax checks passed. The investigation used aggregate database/profile metadata only; no biometric vectors or identity details were written to the report. Live-camera FPS, detector jitter, microphone conversation, Windows installer and physical sensor acceptance still require kiosk hardware. One existing Starlette test-client deprecation warning remains.

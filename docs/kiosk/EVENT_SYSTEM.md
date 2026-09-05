@@ -38,9 +38,11 @@ JSON messages use event, payload, monotonic per-connection sequence, and optiona
 | `camera_ready` / `camera_stopped` | Camera adapter | Physical sensor lifecycle |
 | `face_detected` | Server | Visible track identifiers |
 | `face_tracking` | Server | Boxes, landmarks, Track IDs and quality data |
+| `track_created` / `track_updated` / `track_lost` | Server | Per-track lifecycle; lost includes hits and lifetime |
 | `face_quality_good` / `face_quality_bad` | Server | Quality gate result and visitor guidance |
 | `recognition_started` | Server | A gated matching attempt began |
 | `recognition_progress` | Server | Track and provider confidence |
+| `recognition_finished` | Server | Completed attempt with embedding/search latency, descriptor diagnostics and best distance |
 | `identity_candidate` | Server | Current vote progress; `confirmed: true` requests runtime acceptance |
 | `confirm_identity` | Client command | Accept the pending proposal for the current session |
 | `identity_confirmed` | Server | Identity transaction committed |

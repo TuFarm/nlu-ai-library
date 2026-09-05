@@ -84,7 +84,7 @@
 @media (prefers-reduced-motion: reduce) { .assistant-avatar-runtime { animation: none !important; } }
 .tracking-diagnostics { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:4; }
 .tracking-face { stroke:#50efab; stroke-width:3; }
-.tracking-face.waiting { stroke:#f3c15d; }
+.tracking-diagnostics.developer .tracking-face.waiting { stroke:#f3c15d; }
 .tracking-box { rx:18; filter:drop-shadow(0 0 8px currentColor); }
 .tracking-pulse { rx:22; opacity:.55; animation:tracking-pulse 1.5s ease-out infinite; transform-box:fill-box; transform-origin:center; }
 .tracking-landmark { fill:#7ff7c0; stroke:none; opacity:.78; }

@@ -66,10 +66,10 @@ export function useRealtimeSensor(flow: ReturnType<typeof useKioskFlow>, camera:
         setQualityReady(faces.length === 1 && faces[0].quality_ok);
         if (faces.length !== 1 || !faces[0].quality_ok) enrollmentFrame.current = null;
         setGuidance(faces[0]?.guidance ?? (faces.length ? "Đang nhận diện…" : "Vui lòng nhìn vào camera"));
-        setDiagnostics(d => ({ ...d, faces }));
+        setDiagnostics(d => ({ ...d, faces, vision: payload.metrics }));
       }
       if (event === Events.pong && import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEV_CONTROLS === "true") void window.kiosk?.getDiagnostics?.().then(electron => setDiagnostics(d => ({ ...d, electron })));
-      if ([Events.frameReady, Events.recognitionProgress, Events.transportLatency].includes(event as never)) setDiagnostics(d => ({ ...d, [event]: payload }));
+      if ([Events.frameReady, Events.recognitionProgress, Events.recognitionFinished, Events.transportLatency].includes(event as never)) setDiagnostics(d => ({ ...d, [event]: payload }));
       if (event === Events.identityConfirmed && (sensingStates.has(f.currentState) || f.currentState === "IDENTITY_CONFIRMING") && f.currentState !== "REGISTER") {
         // Stop physical tracks before publishing the UI identity transition.
         c.stopCamera();

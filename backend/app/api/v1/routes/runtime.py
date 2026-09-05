@@ -2,10 +2,8 @@
 import asyncio
 import json
 import logging
-import tempfile
 from datetime import UTC, datetime
 from decimal import Decimal
-from pathlib import Path
 from time import monotonic
 from uuid import UUID
 
@@ -33,19 +31,13 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-def recognize(data):
+def load_candidates():
     if settings.face_provider != "local":
         raise FaceProviderUnavailable("Realtime identity confirmation requires FACE_PROVIDER=local; mock identity is disabled on the stream")
-    # Existing provider accepts a path. Use a private short-lived file, always removed.
-    with tempfile.TemporaryDirectory(prefix="kiosk-frame-") as directory:
-        path = Path(directory) / "frame.jpg"
-        path.write_bytes(data)
-        with SessionLocal() as db:
-            profiles = db.scalars(select(FaceProfile).join(User).where(
-                FaceProfile.active.is_(True), FaceProfile.deleted_at.is_(None), User.deleted_at.is_(None))).all()
-            return RecognitionService().recognize(
-                path, [(p.user_id, p.face_template_encrypted, p.face_template_ref) for p in profiles]
-            )
+    with SessionLocal() as db:
+        profiles = db.scalars(select(FaceProfile).join(User).where(
+            FaceProfile.active.is_(True), FaceProfile.deleted_at.is_(None), User.deleted_at.is_(None))).all()
+        return [(p.user_id, p.face_template_encrypted, p.face_template_ref) for p in profiles]
 
 
 def confirm(session_id, result):
@@ -94,6 +86,7 @@ async def stream(socket: WebSocket):
     recognition = RecognitionService()
     last_frame = 0.0
     completed_requests = {}
+    candidates = None
     publisher = EventPublisher(socket)
 
     await publisher.publish("stream_ready")
@@ -113,7 +106,10 @@ async def stream(socket: WebSocket):
                     last_frame = started
                     image, detections = await run_in_threadpool(vision.inspect, data)
                     frame_size = [int(image.shape[1]), int(image.shape[0])] if image is not None else [1920, 1080]
-                    await publisher.publish("face_tracking", {"faces": detections, "frame_size": frame_size})
+                    await publisher.publish("face_tracking", {"faces": detections, "frame_size": frame_size,
+                                                               "metrics": vision.metrics})
+                    for lifecycle in vision.tracker.last_events:
+                        await publisher.publish(lifecycle["event"], {key: value for key, value in lifecycle.items() if key != "event"})
                     if not detections:
                         _, lost = presence.update(False, started)
                         if lost:
@@ -130,13 +126,29 @@ async def stream(socket: WebSocket):
                                     await publisher.publish("face_quality_bad", detection)
                                     continue
                                 await publisher.publish("face_quality_good", detection)
-                                if controller.mode == "registration" or not recognition.should_recognize(track, started):
+                                recognition_now = monotonic()
+                                if controller.mode == "registration" or not recognition.should_recognize(track, recognition_now):
                                     continue
-                                track.last_recognition = started
+                                track.last_recognition = recognition_now
                                 await publisher.publish("recognition_started", {"track_id": track.id})
-                                result = await run_in_threadpool(recognize, data)
+                                attempt_started = monotonic()
+                                try:
+                                    if candidates is None:
+                                        candidates = await run_in_threadpool(load_candidates)
+                                    result = await run_in_threadpool(
+                                        recognition.recognize, image, tuple(detection["box"]), candidates
+                                    )
+                                except Exception:
+                                    await publisher.publish("recognition_finished", {
+                                        "track_id": track.id, "result": "ERROR",
+                                        "recognition_ms": round((monotonic() - attempt_started) * 1000, 1),
+                                    })
+                                    raise
                                 candidate = str(result.user_id) if result.result == "SUCCESS" else None
-                                await publisher.publish("recognition_progress", {"track_id": track.id, "confidence": result.confidence_score})
+                                progress = {"track_id": track.id, "confidence": result.confidence_score,
+                                            "result": result.result, **recognition.metrics}
+                                await publisher.publish("recognition_progress", progress)
+                                await publisher.publish("recognition_finished", progress)
                                 if candidate:
                                     await publisher.publish("identity_candidate", {"track_id": track.id, "confidence": result.confidence_score, "votes": track.votes + 1})
                                 else:
@@ -163,6 +175,8 @@ async def stream(socket: WebSocket):
                 next_mode = payload.get("mode", "idle")
                 controller.configure(next_mode, payload.get("session_id"))
                 vision = VisionEngine()
+                recognition = RecognitionService()
+                candidates = None
                 presence.reset()
                 await publisher.publish("session_state", {"mode": controller.mode, "session_id": controller.session_id})
             elif kind == "confirm_identity":

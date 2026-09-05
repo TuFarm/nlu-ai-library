@@ -23,7 +23,8 @@ WebSocket was selected because both images and events travel in both directions.
 - AI requests have a 45-second client deadline. Interrupted requests fail rather than being replayed automatically. The server caches up to 32 completed request IDs per connection to reject duplicate execution. This is not durable idempotency across a reconnect or backend crash.
 - A final voice transcript travels in AI_REQUEST. The stream adapter calls the existing browser-transcript persistence function and existing runtime_answer function. Gemini integration and its answer format remain unchanged. Responses arrive as one completed answer, not token-by-token audio or model token streaming.
 - Browser STT and TTS remain the audio adapters. Raw microphone audio is not sent over this WebSocket. Interim transcript and voice-state events are streamed. Production Electron needs a tested speech provider or native adapter; browser Web Speech availability is not guaranteed there.
-- Recognition is attempted at most every 500 ms for a stable quality-approved Track ID. Session creation, enrollment, survey submission and session end remain bounded one-shot REST transactions. These are commands, not polling. The API client enforces a 30-second request timeout.
+- Recognition is attempted at most every 500 ms for a stable quality-approved Track ID. The active gallery is loaded once per stream configuration. Detection uses a reduced analysis image, while embedding uses the original decoded frame and tracked native-coordinate box. Session creation, enrollment, survey submission and session end remain bounded one-shot REST transactions. These are commands, not polling. The API client enforces a 30-second request timeout.
+- Developer telemetry separates decode, detection, tracking/quality, embedding and gallery-search time. `detection_fps` is measured at completed server observations; frontend capture FPS is reported separately.
 
 ## Trust boundary
 
